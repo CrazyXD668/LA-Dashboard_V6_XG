@@ -1170,7 +1170,14 @@ function getClassSummary(sem, sheet, type = 'all', includeRetaker = true, progra
 }
 
 function recordMatchesClass(r, sem, sheet, type = 'all') {
-  return r.semester === sem &&
+  // ROOT-CAUSE FIX(0808c)：原本 `r.semester === sem` 為嚴格相等比對，
+  // sem==='all'（全學期）時恆為 false（沒有任何紀錄的 semester 欄位會
+  // 字面等於 'all'），導致 getAFilteredRecords() 在全學期模式下永遠回傳
+  // 空陣列——即使實際上有大量橫跨學期的資料存在。getClassSummary() 早已
+  // 正確採用「sem!=='all' 才檢查」的萬用字元慣例（見上方 1135 行），此處
+  // 補齊相同邏輯，讓「期中→期末迴歸」與「常態分布疊加」圖表在全學期模式
+  // 下能正確聚合特定班級跨屆的歷史紀錄，而非誤判為無資料。
+  return (sem === 'all' || r.semester === sem) &&
     normalizeSheet(r.sheet_name) === normalizeSheet(sheet) &&
     (type === 'all' || r.type === type);
 }
@@ -2886,18 +2893,48 @@ function renderNormalOverlay(cls, sem, sheet, type = 'all', program = 'all', bas
   });
 }
 
+// UI-EMPTY-STATE FIX(0808c)：圖表因資料不足或篩選組合暫無資料而無法繪製時，
+// 明確以文字告知原因，而非留下空白畫布或殘留前一次篩選的舊圖——這正是
+// 「清除條件後舊圖殘留」與「篩選後顯示空白、無法分辨是資料問題還是功能未載入」
+// 兩個問題的共同根因：原本的程式碼在資料不足時直接 return，從未更新 DOM。
+// 與 renderVarianceBar() 採用的「整卡隱藏」（結構性不適用，如全學期模式下
+// 無「前一學期」可比較）不同，這裡處理的是「篩選模式本身適用，但目前這組
+// 篩選條件剛好沒有足夠資料」的情境，保留卡片、僅將畫布替換為說明文字。
+function showChartEmptyState(canvasId, message) {
+  if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; delete chartConfigs[canvasId]; }
+  const wrap = document.getElementById(canvasId + 'Wrap');
+  if (!wrap) return;
+  wrap.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+// 若先前呼叫過 showChartEmptyState() 換掉了 <canvas>，之後這次篩選條件
+// 確實有足夠資料可畫時，需先還原 <canvas> 節點，mkChart() 才找得到掛載點
+// （document.getElementById(canvasId) 若找不到會直接 return null 靜默失敗）。
+function ensureChartCanvas(canvasId) {
+  const wrap = document.getElementById(canvasId + 'Wrap');
+  if (!wrap) return;
+  if (!document.getElementById(canvasId)) {
+    wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+  }
+}
+
 function renderRegression(sem, sheet, type = 'all', program = 'all', baseRecs) {
   const recs = baseRecs || getAFilteredRecords(sem, sheet, type, program);
   const pts = recs
     .filter(r => r.midterm != null && r.final != null)
     .map(r => ({ x: r.midterm, y: r.final, m: r.masked }));
-  if (pts.length < 3) { document.getElementById('aRsqLabel').textContent=''; return; }
+  if (pts.length < 3) {
+    document.getElementById('aRsqLabel').textContent = '';
+    showChartEmptyState('chartRegression', '無相對應數據載入');
+    return;
+  }
+  ensureChartCanvas('chartRegression');
 
   const n=pts.length, sx=pts.reduce((a,p)=>a+p.x,0), sy=pts.reduce((a,p)=>a+p.y,0);
   const sxy=pts.reduce((a,p)=>a+p.x*p.y,0), sxx=pts.reduce((a,p)=>a+p.x*p.x,0);
   const denom = n*sxx - sx*sx;
   if (denom === 0) {
-    document.getElementById('aRsqLabel').textContent = 'R² = 無法計算（期中成績無差異）';
+    document.getElementById('aRsqLabel').textContent = `${n}筆真實紀錄，R² = 無法計算（期中成績無差異）`;
     mkChart('chartRegression', {
       type:'scatter', data:{ datasets:[{ label:'學生', data:pts,
         backgroundColor:'rgba(79,142,247,0.5)', pointRadius:4, pointHoverRadius:6 }]},
@@ -2915,7 +2952,7 @@ function renderRegression(sem, sheet, type = 'all', program = 'all', baseRecs) {
   const ssres=pts.reduce((a,p)=>a+(p.y-(slope*p.x+intc))**2,0);
   const r2=sstot===0 ? 1 : Math.max(0,1-ssres/sstot);
 
-  document.getElementById('aRsqLabel').textContent=`R² = ${r2.toFixed(3)}`;
+  document.getElementById('aRsqLabel').textContent=`${n}筆真實紀錄，R² = ${r2.toFixed(3)}`;
 
   const xs=[0,100];
   const line=xs.map(x=>+( slope*x+intc ).toFixed(1));
@@ -2946,7 +2983,20 @@ function renderRegression(sem, sheet, type = 'all', program = 'all', baseRecs) {
 function renderVarianceBar(sem, sheet, program = 'all') {
   const type = document.getElementById('aFilterType')?.value || 'all';
   const inclRetaker = getIncludeRetaker('A');
+  const card = document.getElementById('aVarianceCard');
   const selectedCompare = updateCompareFilter(sem, sheet, type, inclRetaker, program);
+
+  // UI-EMPTY-STATE FIX(0808c)：全學期模式下沒有單一明確的「前一學期」可
+  // 比較（updateCompareFilter() 也早已把比較基準下拉選單標示為「全學期
+  // 模式下不適用」），這是結構性不適用，並非資料或篩選問題。原本仍會往下
+  // 嘗試繪製「無可比較資料」佔位長條圖，但該圖 y 軸刻度/格線皆隱藏、只剩
+  // 一根高度為 0 的柱子，視覺上與空白無異，讓人誤以為故障。改為直接隱藏
+  // 整張卡片，比留下一個看起來壞掉的空圖更清楚誠實。
+  if (sem === 'all') {
+    if (card) card.style.setProperty('display', 'none');
+    return;
+  }
+
   const candidates = availableCompareSems(sem, sheet, type, inclRetaker, program);
   const prevSem = selectedCompare !== 'auto' ? selectedCompare : candidates[0];
   // getClassSummary 已自動覆蓋 _nr 欄位，inclRetaker=false 時 cls.avg_semester 即為排除重修生版本
@@ -2954,27 +3004,13 @@ function renderVarianceBar(sem, sheet, program = 'all') {
   const prev = prevSem ? getClassSummary(prevSem, sheet, type, inclRetaker, program) : null;
 
   if (!cur || !prev) {
-    mkChart('chartVariance', {
-      type:'bar',
-      data:{labels:['無可比較資料'],datasets:[{
-        label:'No comparison data',
-        data:[0],
-        backgroundColor:['rgba(107,116,143,0.25)'],
-        borderColor:['rgba(107,116,143,0.55)'],
-        borderWidth:1,
-        borderRadius:4
-      }]},
-      options:{...CHART_DEFAULTS,
-        plugins:{...CHART_DEFAULTS.plugins,legend:{display:false},
-          subtitle:{display:true,text:'目前班級沒有較早且同課別的同班資料',color:'var(--text-dim)',font:{size:10}}},
-        scales:{
-          x:{...CHART_DEFAULTS.scales.x},
-          y:{...CHART_DEFAULTS.scales.y,min:0,max:1,ticks:{display:false},grid:{display:false}}
-        }
-      }
-    });
+    // 同樣屬於「這個具體篩選組合下無法比較」（例如選到資料集裡最早的
+    // 學期，本就不存在更早的同班資料）——結構性無法比較，非暫時無資料，
+    // 比照上方全學期模式，直接隱藏整張卡片。
+    if (card) card.style.setProperty('display', 'none');
     return;
   }
+  if (card) card.style.setProperty('display', '');
 
   const metrics = ['avg_midterm','avg_final','avg_semester','pass_rate'];
   const mLabels = ['期中均分','期末均分','學期均分','及格率×100'];

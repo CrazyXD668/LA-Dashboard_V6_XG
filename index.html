@@ -1494,11 +1494,11 @@ body.light .behavior-range-badge {
         <div class="dot"></div>期中 → 期末 線性迴歸 Regression
         <span id="aRsqLabel" style="color:var(--accent2);font-size:10px;margin-left:8px;font-family:'JetBrains Mono',monospace"></span>
       </div>
-      <div class="chart-wrap" style="height:220px">
+      <div class="chart-wrap" id="chartRegressionWrap" style="height:220px">
         <canvas id="chartRegression"></canvas>
       </div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" id="aVarianceCard">
       <div class="chart-title" style="--accent-color:var(--accent4)">
         <div class="dot"></div>與前次同班比較 Δ vs Previous Semester
         <span style="color:var(--text-dim);font-size:9px;margin-left:4px">— 自動尋找上一個有同班資料的學期</span>
@@ -1507,7 +1507,7 @@ body.light .behavior-range-badge {
         <span class="filter-label">比較基準 Compare</span>
         <select id="aCompareSem"></select>
       </div>
-      <div class="chart-wrap" style="height:220px">
+      <div class="chart-wrap" id="chartVarianceWrap" style="height:220px">
         <canvas id="chartVariance"></canvas>
       </div>
     </div>
@@ -2764,29 +2764,29 @@ body.light .behavior-range-badge {
 </div>
 
 <!-- 核心篩選邏輯模組（Bug E fix: moved from <head> to guarantee defer order） -->
-<script defer src="js/filter-engine.js?v=202608081841"></script>
+<script defer src="js/filter-engine.js?v=202608091047"></script>
 <!-- 主應用邏輯（依賴 filter-engine.js 與 CDN Chart.js） -->
-<script defer src="js/main.js?v=202608081841"></script>
+<script defer src="js/main.js?v=202608091047"></script>
 
 <!-- ══ D3.js v7.9.0（LSA 有向圖，本地化：js/vendor/d3.min.js）══ -->
 <script src="js/vendor/d3.min.js"></script>
 
 <!-- ══ 學習行為模組（依賴 main.js 全域變數）══ -->
-<script defer src="js/chart-registry.js?v=202608081841"></script>
-<script defer src="js/help-modal.js?v=202608081841"></script>
-<script defer src="js/behavior-loader.js?v=202608081841"></script>
-<script defer src="js/tab-behavior-radar.js?v=202608081841"></script>
-<script defer src="js/tab-behavior-correlation.js?v=202608081841"></script>
-<script defer src="js/tab-behavior-time.js?v=202608081841"></script>
-<script defer src="js/tab-behavior-lsa.js?v=202608081841"></script>
-<script defer src="js/tab-behavior-cross.js?v=202608081841"></script>
-<script defer src="js/tab-behavior-warning.js?v=202608081841"></script>
+<script defer src="js/chart-registry.js?v=202608091047"></script>
+<script defer src="js/help-modal.js?v=202608091047"></script>
+<script defer src="js/behavior-loader.js?v=202608091047"></script>
+<script defer src="js/tab-behavior-radar.js?v=202608091047"></script>
+<script defer src="js/tab-behavior-correlation.js?v=202608091047"></script>
+<script defer src="js/tab-behavior-time.js?v=202608091047"></script>
+<script defer src="js/tab-behavior-lsa.js?v=202608091047"></script>
+<script defer src="js/tab-behavior-cross.js?v=202608091047"></script>
+<script defer src="js/tab-behavior-warning.js?v=202608091047"></script>
 
 <!-- ══ 行為初始化 + 高風險報告（依賴 behavior 模組）══ -->
-<script defer src="js/behavior-init.js?v=202608081841"></script>
-<script defer src="js/at-risk-report.js?v=202608081841"></script>
+<script defer src="js/behavior-init.js?v=202608091047"></script>
+<script defer src="js/at-risk-report.js?v=202608091047"></script>
 <!-- ══ 列印面板（依賴所有 behavior 模組與 ChartRegistry）══ -->
-<script defer src="js/print-panel.js?v=202608081841"></script>
+<script defer src="js/print-panel.js?v=202608091047"></script>
 
 
 </body>
