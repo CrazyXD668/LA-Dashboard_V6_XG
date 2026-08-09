@@ -31,7 +31,7 @@ const BehaviorLoader = (() => {
   // Must match sw.js BUILD_VERSION and index.html's JS ?v= parameter.
   // A new value makes every JSON request a new URL, so an older Service
   // Worker or browser HTTP cache cannot return a prior ETL result.
-  const DATA_VERSION = "202608091047";
+  const DATA_VERSION = "202608091148";
 
   // ── 同時請求去重（避免多個 Tab 並發初始化時重複 fetch）─────
   // 例：sub-warning 與 Tab R 的 lazyInit 可能在同一時刻
