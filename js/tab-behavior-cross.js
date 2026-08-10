@@ -335,7 +335,15 @@ const BehaviorCrossTab = (() => {
   }
 
   function resetFilters() {
-    // MVP 無篩選器，保留接口以符合 resetBehaviorFilters 慣例
+    // UI-CROSS-RESET FIX(0810)：本頁籤本身無傳統下拉篩選器（MVP 階段設計，
+    // 見下方原註解），但 R×S 熱力圖支援點擊格子展開詳細統計
+    // （見 _showHeatmapDetail()）。該互動狀態先前完全不受「清除條件」
+    // 影響——按下後詳細統計面板仍顯示使用者上次點擊的格子內容，與其他
+    // 分頁「清除條件」應回到預設狀態的一致行為不符，容易誤讀為目前
+    // 狀態下的預設呈現。改為呼叫共用的 _resetHeatmapDetailPanel()，
+    // 回到「尚未點擊任何格子」的預設提示文字。
+    // （MVP 無篩選器，故僅需重置這個互動狀態即可，不需重新整理熱力圖本身）
+    _resetHeatmapDetailPanel();
   }
 
   function _renderEmpty(msg) {
@@ -708,6 +716,14 @@ const BehaviorCrossTab = (() => {
     return "cross-heat-5";                      // 高 → 紅
   }
 
+  // UI-CROSS-RESET FIX(0810)：R×S 熱力圖詳細統計面板的預設提示文字，
+  // 供 _renderHeatmap() 初始渲染與 resetFilters() 共用（見下方 resetFilters）。
+  function _resetHeatmapDetailPanel() {
+    const detail = document.getElementById("crossHeatmapDetail");
+    if (detail) detail.innerHTML = `<p class="cross-cell-n cross-cell-n--padded">
+      點擊上方格子查看該 R×S 組合的詳細統計。</p>`;
+  }
+
   function _renderHeatmap() {
     const wrap = document.getElementById("crossHeatmapGrid");
     const detail = document.getElementById("crossHeatmapDetail");
@@ -788,8 +804,7 @@ const BehaviorCrossTab = (() => {
       });
     });
 
-    if (detail) detail.innerHTML = `<p class="cross-cell-n cross-cell-n--padded">
-      點擊上方格子查看該 R×S 組合的詳細統計。</p>`;
+    if (detail) _resetHeatmapDetailPanel();
   }
 
   // CSP FIX: was `_severityTextColor()` returning a raw hex string for

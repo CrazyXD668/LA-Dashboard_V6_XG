@@ -2893,42 +2893,30 @@ function renderNormalOverlay(cls, sem, sheet, type = 'all', program = 'all', bas
   });
 }
 
-// UI-EMPTY-STATE FIX(0808c)：圖表因資料不足或篩選組合暫無資料而無法繪製時，
-// 明確以文字告知原因，而非留下空白畫布或殘留前一次篩選的舊圖——這正是
-// 「清除條件後舊圖殘留」與「篩選後顯示空白、無法分辨是資料問題還是功能未載入」
-// 兩個問題的共同根因：原本的程式碼在資料不足時直接 return，從未更新 DOM。
-// 與 renderVarianceBar() 採用的「整卡隱藏」（結構性不適用，如全學期模式下
-// 無「前一學期」可比較）不同，這裡處理的是「篩選模式本身適用，但目前這組
-// 篩選條件剛好沒有足夠資料」的情境，保留卡片、僅將畫布替換為說明文字。
-function showChartEmptyState(canvasId, message) {
-  if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; delete chartConfigs[canvasId]; }
-  const wrap = document.getElementById(canvasId + 'Wrap');
-  if (!wrap) return;
-  wrap.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
-}
-
-// 若先前呼叫過 showChartEmptyState() 換掉了 <canvas>，之後這次篩選條件
-// 確實有足夠資料可畫時，需先還原 <canvas> 節點，mkChart() 才找得到掛載點
-// （document.getElementById(canvasId) 若找不到會直接 return null 靜默失敗）。
-function ensureChartCanvas(canvasId) {
-  const wrap = document.getElementById(canvasId + 'Wrap');
-  if (!wrap) return;
-  if (!document.getElementById(canvasId)) {
-    wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
-  }
+// UI-CARD-VISIBILITY FIX(0810)：圖表因篩選模式結構性不適用或資料不足而
+// 無法有意義呈現時，整卡隱藏而非顯示容易被誤讀的空佔位內容——
+// aRegressionCard（迴歸圖，UI-REGRESSION-HIDE FIX(0809)）與 aVarianceCard
+// （Δ vs Previous Semester，UI-EMPTY-STATE FIX(0808c)）皆採此模式，原本
+// 各自重複 `card.style.setProperty('display', ...)` 共5處，抽出共用函式。
+function setChartCardVisible(card, visible) {
+  if (card) card.style.setProperty('display', visible ? '' : 'none');
 }
 
 function renderRegression(sem, sheet, type = 'all', program = 'all', baseRecs) {
+  const card = document.getElementById('aRegressionCard');
   const recs = baseRecs || getAFilteredRecords(sem, sheet, type, program);
   const pts = recs
     .filter(r => r.midterm != null && r.final != null)
     .map(r => ({ x: r.midterm, y: r.final, m: r.masked }));
   if (pts.length < 3) {
+    // 資料不足時整卡隱藏而非顯示「無相對應數據載入」佔位文字：實務使用發現
+    // 太多篩選組合（尤其「全部班級」這類寬篩選）都會落入此狀態，頻繁出現的
+    // 空佔位卡片反而沒有實質資訊、觀感雜亂，比照 aVarianceCard 既有慣例。
     document.getElementById('aRsqLabel').textContent = '';
-    showChartEmptyState('chartRegression', '無相對應數據載入');
+    setChartCardVisible(card, false);
     return;
   }
-  ensureChartCanvas('chartRegression');
+  setChartCardVisible(card, true);
 
   const n=pts.length, sx=pts.reduce((a,p)=>a+p.x,0), sy=pts.reduce((a,p)=>a+p.y,0);
   const sxy=pts.reduce((a,p)=>a+p.x*p.y,0), sxx=pts.reduce((a,p)=>a+p.x*p.x,0);
@@ -2993,7 +2981,7 @@ function renderVarianceBar(sem, sheet, program = 'all') {
   // 一根高度為 0 的柱子，視覺上與空白無異，讓人誤以為故障。改為直接隱藏
   // 整張卡片，比留下一個看起來壞掉的空圖更清楚誠實。
   if (sem === 'all') {
-    if (card) card.style.setProperty('display', 'none');
+    setChartCardVisible(card, false);
     return;
   }
 
@@ -3007,10 +2995,10 @@ function renderVarianceBar(sem, sheet, program = 'all') {
     // 同樣屬於「這個具體篩選組合下無法比較」（例如選到資料集裡最早的
     // 學期，本就不存在更早的同班資料）——結構性無法比較，非暫時無資料，
     // 比照上方全學期模式，直接隱藏整張卡片。
-    if (card) card.style.setProperty('display', 'none');
+    setChartCardVisible(card, false);
     return;
   }
-  if (card) card.style.setProperty('display', '');
+  setChartCardVisible(card, true);
 
   const metrics = ['avg_midterm','avg_final','avg_semester','pass_rate'];
   const mLabels = ['期中均分','期末均分','學期均分','及格率×100'];

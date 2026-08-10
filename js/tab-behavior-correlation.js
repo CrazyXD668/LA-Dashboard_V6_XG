@@ -715,6 +715,22 @@ const BehaviorCorrelationTab = (() => {
     _filterOutlier  = false;
     _lastFilterKey  = null;
     _lastFiltered   = null;
+
+    // UI-LAG-RESET FIX(0809)：「清除條件」應讓時間滯後相關性的散佈圖區塊
+    // 回到「尚未點擊任何長條」的預設狀態，而非沿用 _autoRefreshLaggedScatter()
+    // 既有的「保留目前展開的 feature、僅刷新底層資料」邏輯——那是為一般篩選
+    // 微調情境設計的（使用者仍在細看同一指標時，理應保留視圖、更新資料）；
+    // 但點擊「清除條件」的心智模型是「全部重來」，即使資料已刷新，殘留一張
+    // 散佈圖仍可能被誤讀為「這組篩選下本來就會顯示這張圖」。在呼叫
+    // _applyFiltersAndRender() 之前先清空區塊並銷毀圖表實例，
+    // _autoRefreshLaggedScatter() 既有「未展開則不處理」的守衛
+    // （!section.innerHTML.trim() 時 return）會自然維持清空狀態，
+    // 不需要另外修改該函式本身的邏輯。
+    ChartRegistry.destroyById("laggedScatterMid");
+    ChartRegistry.destroyById("laggedScatterFinal");
+    const laggedSection = document.getElementById("laggedScatterSection");
+    if (laggedSection) laggedSection.innerHTML = "";
+
     _setFilterControlsFromState();
     _applyFiltersAndRender("corrHeatmap", "scatterSection");
   }
