@@ -1444,39 +1444,10 @@ function renderA() {
   `;
   _applyAccentColors(document.getElementById('aStats'));
 
-  const dist = cls.score_distribution;
-  const labels = ['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-99','100'];
-  mkChart('chartDist', {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: '人數',
-        data: dist,
-        backgroundColor: dist.map((_, i) => i >= 6
-          ? 'rgba(100,212,168,0.7)' : 'rgba(240,112,112,0.5)'),
-        borderColor: dist.map((_, i) => i >= 6
-          ? '#64d4a8' : '#f07070'),
-        borderWidth: 1,
-        borderRadius: 3,
-      }]
-    },
-    options: {
-      ...CHART_DEFAULTS,
-      plugins: {
-        ...CHART_DEFAULTS.plugins,
-        legend: { display: false },
-        tooltip: {
-          ...CHART_DEFAULTS.plugins.tooltip,
-          callbacks: {
-            label: ctx => `人數：${ctx.raw}（${cls.count ? (ctx.raw/cls.count*100).toFixed(1) : 0}%）`
-          }
-        }
-      },
-      scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, beginAtZero: true } }
-    }
-  });
-
+  // UI-MERGE-DIST-0811：原 chartDist（成績分佈直方圖）已併入
+  // renderNormalOverlay() 產生的 chartNormalOverlay——後者的「實際人數」
+  // 長條資料同樣讀自 cls.score_distribution，數值完全一致，僅多疊加一條
+  // 理論常態曲線，故不再重複繪製本圖，改由下方 renderNormalOverlay() 統一產出。
   mkChart('chartMidFinal', {
     type: 'bar',
     data: {
@@ -4606,25 +4577,31 @@ function renderDProgramBar(allClasses, sems, filterProg) {
   });
 }
 
+// UI-OPT-0811：抽出 renderDPassRateLine／renderDPassRateBar 共用的「各學制
+// 逐學期加權及格率」計算邏輯（原本兩函式內容逐字重複），單一真實來源，
+// 未來若加權公式調整只需修改一處。兩函式仍各自保留自己的 programs 篩選
+// 規則（趨勢折線納入 PROGRAM_ORDER 全部；長條比較僅納入實際有資料的學制），
+// 因為這是兩者唯一有意義的差異、並非重複程式碼。
+function _programPassRateSeries(allClasses, sems, prog) {
+  return sems.map(sem => {
+    const cls = allClasses.filter(c => c.semester === sem && c.program === prog);
+    if (!cls.length) return null;
+    const w = weightedAvg(cls, c => c.pass_rate);
+    return w != null ? +(w * 100).toFixed(1) : null;
+  });
+}
+
 function renderDPassRateLine(allClasses, sems, filterProg) {
   const programs = filterProg === 'all'
     ? PROGRAM_ORDER
     : PROGRAM_ORDER.filter(p => p === filterProg);
-  const datasets = programs.map(prog => {
-    const data = sems.map(sem => {
-      const cls = allClasses.filter(c => c.semester === sem && c.program === prog);
-      if (!cls.length) return null;
-      const w = weightedAvg(cls, c => c.pass_rate);
-      return w != null ? +(w * 100).toFixed(1) : null;
-    });
-    return {
-      label: PROGRAM_LABELS[prog],
-      data,
-      borderColor: PROGRAM_COLORS[prog],
-      backgroundColor: PROGRAM_COLORS[prog] + '20',
-      tension: 0.3, fill: false, pointRadius: 4, spanGaps: true,
-    };
-  });
+  const datasets = programs.map(prog => ({
+    label: PROGRAM_LABELS[prog],
+    data: _programPassRateSeries(allClasses, sems, prog),
+    borderColor: PROGRAM_COLORS[prog],
+    backgroundColor: PROGRAM_COLORS[prog] + '20',
+    tension: 0.3, fill: false, pointRadius: 4, spanGaps: true,
+  }));
 
   mkChart('chartPassRateRange', {
     type: 'line',
@@ -4654,21 +4631,13 @@ function renderDPassRateBar(allClasses, sems, filterProg) {
     ? PROGRAM_ORDER.filter(p => allClasses.some(c => c.program === p))
     : PROGRAM_ORDER.filter(p => p === filterProg);
 
-  const datasets = programs.map(prog => {
-    const data = sems.map(sem => {
-      const cls = allClasses.filter(c => c.semester === sem && c.program === prog);
-      if (!cls.length) return null;
-      const w = weightedAvg(cls, c => c.pass_rate);
-      return w != null ? +(w * 100).toFixed(1) : null;
-    });
-    return {
-      label: PROGRAM_LABELS[prog],
-      data,
-      backgroundColor: PROGRAM_COLORS[prog] + 'bb',
-      borderColor: PROGRAM_COLORS[prog],
-      borderWidth: 1, borderRadius: 3,
-    };
-  });
+  const datasets = programs.map(prog => ({
+    label: PROGRAM_LABELS[prog],
+    data: _programPassRateSeries(allClasses, sems, prog),
+    backgroundColor: PROGRAM_COLORS[prog] + 'bb',
+    borderColor: PROGRAM_COLORS[prog],
+    borderWidth: 1, borderRadius: 3,
+  }));
 
   mkChart('chartPassRate', {
     type: 'bar',
@@ -5115,7 +5084,7 @@ function initDataActionDelegation() {
   // Actions that toggle a popover/panel open and must stop propagation,
   // otherwise the same click immediately bubbles to the global "close" listener.
   const STOP_PROPAGATION_ACTIONS = new Set([
-    'toggleBStatsHelp', 'toggleRRadarInfo', 'toggleWarningHelp',
+    'toggleBStatsHelp', 'toggleRRadarInfo', 'toggleWarningHelp', 'toggleRTemporalInfo',
     'closePopover', 'closePanelOpen', 'hidePanel',
   ]);
   const PERSISTABLE_ACTIONS = new Set([
@@ -5186,6 +5155,10 @@ function initDataActionDelegation() {
       // Warning help — exposed by help-modal.js
       toggleWarningHelp: () => {
         if (typeof window.toggleWarningHelp === 'function') window.toggleWarningHelp(e);
+      },
+      // Temporal chart info（UI-HELP-GAP-0811：新增，比照上方三個 toggle*Help/Info）
+      toggleRTemporalInfo: () => {
+        if (typeof window.toggleRTemporalInfo === 'function') window.toggleRTemporalInfo(e);
       },
       // At-risk report
       atRiskFilterRadar: () => {

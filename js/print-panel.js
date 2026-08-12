@@ -20,10 +20,9 @@ const PrintPanel = (() => {
     { id: "chartCorrelation", label: "修課人數與及格率關聯", tab: "D 成績總覽", type: "canvas", checked: false },
     { id: "dDetailTable", label: "班級明細表", tab: "D 成績總覽", type: "dom", checked: false },
 
-    { id: "chartDist", label: "班級成績分布", tab: "A 單班分析", type: "canvas", checked: false },
     { id: "chartMidFinal", label: "期中期末與學期成績", tab: "A 單班分析", type: "canvas", checked: false },
     { id: "chartTrend", label: "單班歷年趨勢", tab: "A 單班分析", type: "canvas", checked: false },
-    { id: "chartNormalOverlay", label: "常態分布疊圖", tab: "A 單班分析", type: "canvas", checked: false },
+    { id: "chartNormalOverlay", label: "班級成績分布（含常態疊圖）", tab: "A 單班分析", type: "canvas", checked: false },
     { id: "chartRegression", label: "期中期末迴歸", tab: "A 單班分析", type: "canvas", checked: false },
     { id: "chartVariance", label: "變異與離散分析", tab: "A 單班分析", type: "canvas", checked: false },
 

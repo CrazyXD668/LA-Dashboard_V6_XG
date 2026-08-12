@@ -48,10 +48,31 @@ const HELP_CONTENT = {
     ],
   },
 
+  // BUG-FIX（UI-HELP-MISMATCH-0811）：本條目原本掛在 canvas id="chartPassRate"
+  // 上，但該 canvas 在「多選」模式下顯示的是離散學期並排長條比較圖，內容
+  // 卻是為「連續學期趨勢折線」寫的說明文字（"時間趨勢"／"某學期突然跌落"
+  // 等趨勢語彙），語意對不上；而真正的趨勢折線圖 chartPassRateRange 反而
+  // 完全沒有對應說明條目、"?" 按鈕不會出現。追查後係先前重構把單一及格率
+  // 折線圖拆成「範圍模式折線／多選模式長條」兩個獨立 canvas id 時，說明
+  // 文字忘記同步拆分所致。修法：拆為 chartPassRate（長條比較，此條目）與
+  // chartPassRateRange（趨勢折線，見下方新條目）兩份各自正確對應的說明。
   chartPassRate: {
+    title: '及格率比較（多選學期）',
+    sections: [
+      { type: 'desc', text: '「多選」模式下使用者手動選取的數個學期，各學制及格率（%）並排長條比較，是比均分更直接的達標指標。' },
+      { type: 'points', items: [
+        '同一學制在不同所選學期間差距大 → 該學制表現不穩定，可考慮查看是否與師資或評量方式異動有關',
+        '同一學期內各學制差距大 → 學制背景對達標與否有顯著影響',
+        '特定學制在多個所選學期持續偏低 → 考慮提供差異化支持',
+      ]},
+      { type: 'use', text: '及格率是教育研究常用結果變項，適合用於呈現特定幾個學期的橫向比較報告。' },
+    ],
+  },
+
+  chartPassRateRange: {
     title: '及格率跨學期趨勢',
     sections: [
-      { type: 'desc', text: '各學制及格率（%）的時間趨勢，是比均分更直接的達標指標。' },
+      { type: 'desc', text: '「範圍」模式下，各學制及格率（%）隨學期的連續趨勢折線，是比均分更直接的達標指標。' },
       { type: 'points', items: [
         '及格率 > 90% 且穩定 → 課程難度適中',
         '某學期突然跌落 → 檢視評量方式或課程模組是否異動',
@@ -100,29 +121,22 @@ const HELP_CONTENT = {
     ],
   },
 
-  chartDist: {
-    title: '成績分布直方圖',
+  // UI-MERGE-DIST-0811：原 chartDist（成績分布直方圖）說明併入本項——
+  // 兩圖「實際人數」長條資料完全相同，chartDist 僅為本圖去除常態曲線的
+  // 子集，故不再獨立成卡，其形態判讀要點（鐘型/左偏/右偏/雙峰）保留於此。
+  chartNormalOverlay: {
+    title: '常態分布曲線疊加',
     sections: [
-      { type: 'desc', text: '各分數區間的學生人數。60分以上綠色，以下紅色。' },
+      { type: 'desc', text: '各分數區間的學生人數長條圖（60分以上綠色，以下紅色），並疊加理論常態曲線（灰色虛線，以實際均分與標準差計算）。' },
       { type: 'points', items: [
         '鐘型分布 → 評量難度適中',
         '左偏（高分集中）→ 課程偏易',
         '右偏（低分集中）→ 課程偏難，評量方式可考慮調整',
         '雙峰 → 學生兩極分化，需差異化教學',
-      ]},
-      { type: 'use', text: '快速掌握班級整體成績分布形態。' },
-    ],
-  },
-
-  chartNormalOverlay: {
-    title: '常態分布曲線疊加',
-    sections: [
-      { type: 'desc', text: '在直方圖上疊加理論常態曲線（灰色虛線），以實際均分與標準差計算。' },
-      { type: 'points', items: [
         '實際分布與曲線吻合 → 成績接近常態，符合統計假設',
         '明顯偏離 → 存在地板效應（整體偏低）或天花板效應（整體偏高）',
       ]},
-      { type: 'use', text: '判斷是否符合常態假設，作為 t 檢定等分析的前提確認。' },
+      { type: 'use', text: '快速掌握班級整體成績分布形態，並判斷是否符合常態假設，作為 t 檢定等分析的前提確認。' },
     ],
   },
 
@@ -179,6 +193,22 @@ const HELP_CONTENT = {
     ],
   },
 
+  // UI-HELP-GAP-0811：以下 cChartDist／chartRetakerTrend／chartRetakerPassRate／
+  // chartProfile 四張圖表原本完全沒有 HELP_CONTENT 條目，"?" 按鈕從未出現
+  // （attachHelpButtons() 依 HELP_CONTENT 的 key 動態產生按鈕，無條目=無按鈕），
+  // 穿透式審查時發現，新增條目補齊。
+  cChartDist: {
+    title: '成績級距分布 Score Distribution',
+    sections: [
+      { type: 'desc', text: '依目前 Panel C 篩選條件（學期／學制／課程類型／及格與否／是否含重修）所篩出的全部學生，其所選成績（期中／期末／學期）依 10 分為一級距的人次分布，60 分以下為紅色。與 Panel A「常態分布曲線疊加」不同：本圖是跨班級、可自由篩選人群範圍的整體分布，不限單一班級。' },
+      { type: 'points', items: [
+        '整體集中於 60 分以上 → 目前篩選範圍內學生達標情形良好',
+        '紅色（不及格）區塊比例偏高 → 可調整篩選條件（如切換學制／課程類型）進一步定位問題族群',
+      ]},
+      { type: 'use', text: '快速掌握目前篩選人群的整體成績分布形態，作為切換篩選條件前的基準參考。' },
+    ],
+  },
+
   chartAnomalyDensity: {
     title: '各學期異常事件密度',
     sections: [
@@ -190,6 +220,30 @@ const HELP_CONTENT = {
         '整體趨勢下降 → 班級管理與學習文化改善',
       ]},
       { type: 'use', text: '班級管理或課程執行品質的長期監控指標。' },
+    ],
+  },
+
+  chartRetakerTrend: {
+    title: '重修生成績 跨學期趨勢',
+    sections: [
+      { type: 'desc', text: '有重修記錄的學生，其重修後成績（依目前所選課程類型：正課／實驗課）依學期加權平均，繪成跨學期趨勢折線。與下方「重修生及格率趨勢」皆讀自同一批重修紀錄，但本圖看的是平均分數高低，及格率圖看的是達標比例，兩者可能不同步（例如平均分上升但及格率持平，代表進步集中在原本已及格邊緣的學生）。' },
+      { type: 'points', items: [
+        '持續上升 → 補救教學／重修輔導機制成效逐年累積',
+        '某學期明顯下滑 → 檢視該學期重修班授課方式或教材是否異動',
+      ]},
+      { type: 'use', text: '評估重修輔導機制的長期成效，建議與「重修生及格率趨勢」對照解讀。' },
+    ],
+  },
+
+  chartRetakerPassRate: {
+    title: '重修生及格率趨勢',
+    sections: [
+      { type: 'desc', text: '有重修記錄的學生，其重修後及格率（依目前所選課程類型）依學期計算，繪成跨學期趨勢折線。與上方「重修生成績跨學期趨勢」讀自同一批重修紀錄，但本圖看的是達標比例（是否 ≥ 60 分），不是平均分數高低。' },
+      { type: 'points', items: [
+        '及格率持續上升但均分持平或下降 → 重修生「剛好及格」的比例提高，可留意是否有拉抬邊緣分數的評量調整',
+        '及格率與均分同步上升 → 重修輔導對整體程度皆有幫助，非僅止於邊緣學生',
+      ]},
+      { type: 'use', text: '直接對應「重修生是否達標」的結果變項，適合放入重修機制成效報告。' },
     ],
   },
 
@@ -216,6 +270,19 @@ const HELP_CONTENT = {
         '水平線 → 重修沒有顯著改變',
       ]},
       { type: 'use', text: '一眼掌握補救教學整體成效。' },
+    ],
+  },
+
+  chartProfile: {
+    title: '成績軌跡 Score Trajectory',
+    sections: [
+      { type: 'desc', text: 'Panel C 學生查詢個案卡中，該名學生歷來每學期、每班別的學期成績連線，正課（藍）與實驗課（綠）分開繪製；為單一學生的個人歷程，與班級或群體層級的圖表（如成績分布、及格率趨勢）population 不同，不可直接互相比較數值。' },
+      { type: 'points', items: [
+        '整體向上 → 該生學習狀況持續改善',
+        '正課與實驗課走勢分歧 → 可能單一課程類型有特定困難，適合作為個別輔導切入點',
+        '某學期出現斷點（無資料點）→ 該學期未修對應課程類型，非缺考或成績缺漏',
+      ]},
+      { type: 'use', text: '個別學生輔導會談前的快速歷程回顧，搭配下方學習行為分型卡片使用。' },
     ],
   },
 
@@ -442,7 +509,47 @@ const HELP_CONTENT = {
     ],
   },
 
-  // ══════════════ 原手寫 HTML 面板（5 個，逐字轉換自 index.html / tab-behavior-lsa.js）══════════════
+  // UI-HELP-GAP-0811：以下三張 Cross 子分頁圖表原本完全沒有 HELP_CONTENT
+  // 條目，穿透式審查時發現並補齊。三者資料欄位互不相同（不及格率 / 軌跡
+  // 分型 / 學習方法分型），詳見各條目說明，非重複圖表。
+  crossGroupChart: {
+    title: 'R群 / S群 期末不及格率比較',
+    sections: [
+      { type: 'desc', text: '依「教材使用行為分群（R群，R1～R5）」與「序列轉移穩定性分群（S群，S1穩定～S5高風險）」分別統計各群組的期末不及格率長條圖，可與上方「複合行為評分（BAS）與相關係數摘要」卡片中的 R群/S群 Spearman ρ 對照，本圖是逐群組不及格率的視覺化明細，該摘要卡是分群與成績等級相關的整體強度數字。' },
+      { type: 'points', items: [
+        '不及格率隨群組編號遞增（R1→R5 或 S1→S5）→ 分群與學習結果方向一致，分群具實務參考價值',
+        '某群組不及格率明顯偏離整體趨勢 → 該群組人數可能過少，建議同時查看人數標籤，避免小樣本誤讀',
+      ]},
+      { type: 'use', text: '定位哪些行為分群屬於高風險族群，作為介入資源分配的優先順序參考。' },
+    ],
+  },
+
+  crossTrajectoryChart: {
+    title: '期中→期末軌跡分布',
+    sections: [
+      { type: 'desc', text: '學生依期中、期末成績是否達 60 分，分為 SS（穩定及格）／FS（谷底反彈：期中不及格→期末及格）／SF（由盛轉衰：期中及格→期末不及格）／FF（持續不及格）四型，各學期堆疊比例長條圖。' },
+      { type: 'points', items: [
+        'FS（谷底反彈）比例偏高 → 期中預警與後續介入機制有效，可作為成功案例參考',
+        'SF（由盛轉衰）比例偏高 → 需留意學期後段是否有課程難度陡增或學生倦怠等因素',
+        'FF（持續不及格）比例偏高 → 該族群僅靠現行機制可能不足，需更早期或更密集的介入',
+      ]},
+      { type: 'use', text: '評估「期中預警是否真的能轉化為期末補救成功」，是行為介入成效最直接的結果指標之一。' },
+    ],
+  },
+
+  crossApproachChart: {
+    title: '學習方法分布',
+    sections: [
+      { type: 'desc', text: '依學習行為模式將學生分為 DEEP（深度學習）／MODERATE（中等）／SURFACE（表層／臨時抱佛腳）三型，各學期堆疊比例長條圖。分型邏輯與「複合行為評分卡」的「學習方法分布」彙總數字為同一套定義，本圖呈現的是逐學期變化趨勢。' },
+      { type: 'points', items: [
+        'DEEP 比例逐學期上升 → 課程設計或教學方法調整成功引導學生採用更深層的學習策略',
+        'SURFACE 比例偏高且無下降趨勢 → 可考慮增加形成性評量頻率，減少考前臨時抱佛腳的誘因',
+      ]},
+      { type: 'use', text: '追蹤教學介入是否成功改變學生的學習策略，而不只是成績本身。' },
+    ],
+  },
+
+  // ══════════════ 原手寫 HTML 面板（6 個，逐字轉換自 index.html / tab-behavior-lsa.js）══════════════
 
   bStatsHelp: {
     title: '📊 統計卡說明',
@@ -534,6 +641,28 @@ const HELP_CONTENT = {
         '兩組差距越大的維度，越值得課程設計介入或預警干預。',
       ]},
       { type: 'desc', text: '點擊上方「不及格人數」或「及格人數」卡片，可單獨聚焦顯示該組雷達線。' },
+    ],
+  },
+
+  // UI-HELP-GAP-0811：rTemporalChart（週學習活動量時序比較）與上方
+  // rRadarChart 同為 §5.3/§5.4，屬同一套「及格組 vs 不及格組」比較系列，
+  // 但雷達圖看的是單一時間點的多維度輪廓，本圖看的是單一指標（活動分鐘數）
+  // 隨週次的變化趨勢，兩者互補、資料來源不同（雷達=六維度中位數正規化值，
+  // 本圖=每週平均活動分鐘數原始值），非重複圖表。原本完全沒有 HELP_CONTENT
+  // 條目，穿透式審查時發現並補齊，按鈕與 window.toggleRTemporalInfo 綁定
+  // 已於 index.html／main.js 同步新增。
+  rTemporalInfo: {
+    title: '📈 週學習活動量時序比較 — 分析原則',
+    sections: [
+      { type: 'heading', text: '圖表用途' },
+      { type: 'desc', text: '比較「及格組」與「不及格組」學生每週平均學習活動量（分鐘）隨學期週次的變化趨勢，用於觀察兩組的投入時間差距是否隨學期進展擴大或縮小。' },
+      { type: 'heading', text: '如何讀圖？' },
+      { type: 'points', items: [
+        '兩條線全程分開且不及格組明顯偏低 → 投入時間不足可能是貫穿整學期的持續性因素',
+        '期中考（紅色虛線標注）後不及格組明顯下滑 → 可能反映考後動機下降或缺乏後續介入，適合作為期中預警後追蹤輔導的觀察重點',
+        '兩組差距在特定週次縮小 → 該週次的課程活動或作業設計可能對低投入學生特別有吸引力，值得參考複製',
+      ]},
+      { type: 'desc', text: '若目前檢視範圍為「全部學期」聚合視圖，因各學期期中考週次不同（W8 或 W9），本圖不繪製期中考標注線，以免誤導；僅切換至個別學期時才會標示該學期實際期中考週次。' },
     ],
   },
 
@@ -912,7 +1041,7 @@ function renderHelpModal(content) {
 // 呼叫點（main.js×3、behavior-init.js×2）已同步由 attachInfoButtons()
 // 改名為 attachHelpButtons()。
 // ══════════════════════════════════════════════════════════
-const _HELP_MODAL_STANDALONE_KEYS = ['bStatsHelp', 'warningHelp', 'rRadarInfo', 'r2Exclude', 'lsaHelp'];
+const _HELP_MODAL_STANDALONE_KEYS = ['bStatsHelp', 'warningHelp', 'rRadarInfo', 'r2Exclude', 'lsaHelp', 'rTemporalInfo'];
 
 function attachHelpButtons() {
   Object.keys(HELP_CONTENT).forEach(id => {
@@ -951,6 +1080,10 @@ function attachHelpButtons() {
 window.toggleBStatsHelp  = () => renderHelpModal(HELP_CONTENT.bStatsHelp);
 window.toggleRRadarInfo  = () => renderHelpModal(HELP_CONTENT.rRadarInfo);
 window.toggleWarningHelp = () => renderHelpModal(HELP_CONTENT.warningHelp);
+// UI-HELP-GAP-0811：rTemporalChart（週學習活動量時序比較）與 rRadarChart
+// 同屬 §5.3/§5.4，同樣是 <h3> 標頭、非 .chart-card/.chart-title 結構，
+// attachHelpButtons() 掃不到，故沿用同一套「手寫按鈕＋standalone key」模式。
+window.toggleRTemporalInfo = () => renderHelpModal(HELP_CONTENT.rTemporalInfo);
 
 // r2ExcludeInfoBtn 無 data-action，原本靠 ui-toggles.js 的 document click
 // ID 比對觸發（B3）；ui-toggles.js 整檔移除後於此自行綁定。
