@@ -59,7 +59,7 @@ const BehaviorRadarTab = (() => {
   function _invalidateComputeCache() { _computeCache.clear(); }
 
   // 模組層級：讀取深色模式，避免每次 render 重建 closure
-  function _isDark(){return document.documentElement.classList.contains('dark')||window.matchMedia('(prefers-color-scheme:dark)').matches;}
+  function _isDark(){return !document.body.classList.contains('light');}
 
   function _dimensions(){
     const e=_radarData?.dimensions||_radarData?.meta?.dimensions;
@@ -300,6 +300,14 @@ const BehaviorRadarTab = (() => {
   }
   function selectPassFilter(key){
     _passFilter=key;
+    _renderControls("radarControls");
+    renderClusterSummary("clusterSummaryCards");
+    _renderRadar("radarChart");
+    _renderInsights();
+  }
+
+  function reRender(){
+    if(!_radarData)return;
     _renderControls("radarControls");
     renderClusterSummary("clusterSummaryCards");
     _renderRadar("radarChart");
@@ -710,5 +718,5 @@ const BehaviorRadarTab = (() => {
     _renderRadar("radarChart");
     _renderInsights(); // R4: _renderInsights() 在 P0 時自行隱藏 panel
   }
-  return{init,switchView,toggleCluster,renderClusterSummary,onYearChange,selectCluster,selectPassFilter,exportClusterCSV,resetFilters};
+  return{init,switchView,toggleCluster,renderClusterSummary,onYearChange,selectCluster,selectPassFilter,exportClusterCSV,resetFilters,reRender};
 })();

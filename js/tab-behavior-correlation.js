@@ -735,6 +735,10 @@ const BehaviorCorrelationTab = (() => {
     _applyFiltersAndRender("corrHeatmap", "scatterSection");
   }
 
+  function reRender() {
+    if (_corrData) onFilterChange();
+  }
+
   // ── 篩選快取：條件未變時不重新過濾 ─────────────────────────
   // （宣告已移至模組頂部狀態區，此處刪除重複宣告）
   function _filteredScatterData() {
@@ -2050,5 +2054,5 @@ const BehaviorCorrelationTab = (() => {
     ChartRegistry.register("scatterChart", chart);
   }
 
-  return { init, showScatter, onFilterChange, resetFilters, setCorrType };
+  return { init, showScatter, onFilterChange, resetFilters, setCorrType, reRender };
 })();

@@ -3700,6 +3700,8 @@ function toggleMetaInfo() {
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
   document.getElementById('themeToggle').textContent = isLight ? '🌞' : '🌙';
+  const themeMeta = document.getElementById('themeColorMeta');
+  if (themeMeta) themeMeta.setAttribute('content', isLight ? '#f3f6f8' : '#0e1724');
   localStorage.setItem('la-theme', isLight ? 'light' : 'dark');
   refreshChartDefaults();
   if (!DATA) return;
@@ -3710,6 +3712,10 @@ function toggleTheme() {
     if (tabId === 'A') { renderA(); renderTrend(); }
     if (tabId === 'C') renderCView();
     if (tabId === 'D') renderD();
+    if (tabId === 'L' && typeof BehaviorTabManager !== 'undefined' &&
+        typeof BehaviorTabManager.reRenderActive === 'function') {
+      BehaviorTabManager.reRenderActive();
+    }
     if (tabId === 'P' && window.PrintPanel) window.PrintPanel.renderPanel();
     if (tabId === 'R' && typeof AtRiskReportManager !== 'undefined' && AtRiskReportManager.reRenderRadar) {
       AtRiskReportManager.reRenderRadar();
@@ -3728,6 +3734,8 @@ function toggleTheme() {
     document.body.classList.add('light');
     const btn = document.getElementById('themeToggle');
     if (btn) btn.textContent = '🌞';
+    const themeMeta = document.getElementById('themeColorMeta');
+    if (themeMeta) themeMeta.setAttribute('content', '#f3f6f8');
   }
   refreshChartDefaults();
 })();

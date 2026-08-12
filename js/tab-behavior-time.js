@@ -345,6 +345,11 @@ const BehaviorTimeTab = (() => {
     });
   }
 
+  function reRender() {
+    if (!_rowCache || !_timeData) return;
+    _renderAll();
+  }
+
   // ────────────────────────────────────────────────────────────
   // 原有圖表（完整保留）
   // ────────────────────────────────────────────────────────────
@@ -1297,5 +1302,6 @@ const BehaviorTimeTab = (() => {
     renderAIInsightBadge,
     renderStudyHeatmap,
     renderHourlyLine,
+    reRender,
   };
 })();

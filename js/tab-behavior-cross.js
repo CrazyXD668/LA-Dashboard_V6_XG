@@ -346,6 +346,19 @@ const BehaviorCrossTab = (() => {
     _resetHeatmapDetailPanel();
   }
 
+  function reRender() {
+    if (!_crossData) return;
+    _safeRender("資料範圍說明", _renderScopeNote);
+    _safeRender("BAS/QMI 摘要卡", _renderSummaryCard);
+    _safeRender("XGB預測效能卡", _renderXgbCard);
+    _safeRender("高風險組合警示", _renderAlertCard);
+    _safeRender("R群/S群長條圖", _renderGroupChart);
+    _safeRender("R×S 熱力圖", _renderHeatmap);
+    _safeRender("分析框架說明卡", _renderLegendCards);
+    _safeRender("軌跡分型堆疊圖", _renderTrajectoryChart);
+    _safeRender("學習方法堆疊圖", _renderApproachChart);
+  }
+
   function _renderEmpty(msg) {
     const el = document.getElementById("sub-cross");
     if (!el) return;
@@ -1079,5 +1092,5 @@ const BehaviorCrossTab = (() => {
 
   // featureLabel：匯出供 at-risk-report.js「Top Risk Factors」共用，
   // 確保與本頁「Top 5 預測特徵」使用同一份中文譯名對照表（UI-FIX-3）。
-  return { init, resetFilters, featureLabel: _featureLabel };
+  return { init, resetFilters, featureLabel: _featureLabel, reRender };
 })();

@@ -808,6 +808,10 @@ const BehaviorLsaTab = (() => {
     if (_lsaData) { _render(); _renderLsaInsights(); }
   }
 
+  function reRender() {
+    if (_lsaData) { _render(); _renderLsaInsights(); }
+  }
+
   // ── 依 filter 狀態取得對應 groupData ─────────────────────────
   // FIX-Q3 優先順序：學期 > 資源分群 > 序列分群 > 全體
   // 及格狀況（_group = all/pass/fail）永遠是最終一層
@@ -1466,5 +1470,5 @@ const BehaviorLsaTab = (() => {
     return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  return { init, resetFilters, onGroupChange };
+  return { init, resetFilters, onGroupChange, reRender };
 })();

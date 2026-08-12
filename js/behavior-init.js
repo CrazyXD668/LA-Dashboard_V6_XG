@@ -583,5 +583,19 @@ const BehaviorTabManager = (() => {
     }
   }
 
-  return { lazyInit, switchSub };
+  function reRenderActive() {
+    const sub = document.querySelector('#behaviorSubTabs .behavior-sub-btn.is-active')?.dataset.sub || 'radar';
+    const modules = {
+      radar: BehaviorRadarTab,
+      time: BehaviorTimeTab,
+      correlation: BehaviorCorrelationTab,
+      lsa: BehaviorLsaTab,
+      cross: BehaviorCrossTab,
+      warning: BehaviorWarningTab,
+    };
+    const module = modules[sub];
+    if (module && typeof module.reRender === 'function') module.reRender();
+  }
+
+  return { lazyInit, switchSub, reRenderActive };
 })();

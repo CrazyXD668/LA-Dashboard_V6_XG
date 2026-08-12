@@ -32,7 +32,7 @@
 <link rel="apple-touch-icon" sizes="120x120" href="./icons/icon-120.png">
 
 <!-- Android / Chrome theme -->
-<meta name="theme-color" content="#0b0d14">
+<meta id="themeColorMeta" name="theme-color" content="#0e1724">
 <meta name="mobile-web-app-capable" content="yes">
 
 <!-- PWACompat：自動產生所有 Splash Screen，免手動維護 -->
@@ -616,7 +616,7 @@ body.chart-expanded-open { overflow: hidden; }
   border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--border2);
-  box-shadow: 0 2px 8px rgba(20,35,60,.06);
+  box-shadow: none;
 }
 .bc-card-head { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
 .bc-card-idx { font-weight: 700; color: var(--accent); font-size: 11px; }
@@ -638,7 +638,11 @@ body.chart-expanded-open { overflow: hidden; }
   line-height: 1.4;
 }
 .bc-card-empty { opacity: .8; }
-.bc-card-warn { border-left: 3px solid var(--accent3); opacity: 1; }
+.bc-card-warn {
+  border-color: rgba(217,129,109,.48);
+  background: rgba(217,129,109,.08);
+  opacity: 1;
+}
 .bc-card-warn .bc-card-msg { color: var(--accent3); font-weight: 600; }
 .bc-card-msg { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
 
@@ -709,8 +713,8 @@ body.chart-expanded-open { overflow: hidden; }
 }
 .notice {
   background: rgba(247,164,79,0.08);
-  border-left: 3px solid var(--accent3);
-  border-radius: 0 6px 6px 0;
+  border: 1px solid rgba(247,164,79,.32);
+  border-radius: 8px;
   padding: 10px 14px;
   font-size: 11px;
   color: var(--accent3);
@@ -933,7 +937,7 @@ input, button, select, textarea { -webkit-appearance: none; }
   align-items: center;
   gap: 12px;
   z-index: 9998;
-  box-shadow: 0 4px 16px rgba(79,142,247,0.4);
+  box-shadow: none;
   animation: slideDown 0.3s ease;
 }
 @keyframes slideDown {
@@ -1301,6 +1305,419 @@ body.light .behavior-range-badge {
 }
 .filter-collapse-bar .collapse-icon { font-size: 12px; }
 .filter-bar.collapsed { display: none !important; }
+
+/* ─────────────────────────────────────────────────────────────
+   UI/UX refinement — calm data-workbench visual system
+   Presentation only: keep the existing DOM, IDs, data attributes and
+   chart containers intact so the dashboard's data and analysis behavior
+   remain unchanged.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+  --bg:        #0e1724;
+  --surface:   #142131;
+  --surface2:  #1b2b3d;
+  --surface3:  #24384d;
+  --border:    #2a4054;
+  --border2:   #3a566c;
+  --accent:    #6bb5ae;
+  --accent2:   #d2a35f;
+  --accent3:   #d9816d;
+  --accent4:   #a7a0d2;
+  --text:      #e9f0f4;
+  --text-dim:  #91a5b6;
+  --text-mid:  #b8c7d2;
+  --red:       #e4867c;
+  --yellow:    #e1b462;
+  --blue:      #82acd8;
+  --green:     #82c5a8;
+  --radius:    12px;
+  --tab-h:     56px;
+  --header-h:  64px;
+  --card-bg2:  #1b2b3d;
+  --card-bg:   #142131;
+}
+
+body.light {
+  color-scheme: light;
+  --bg:        #f3f6f8;
+  --surface:   #ffffff;
+  --surface2:  #edf2f4;
+  --surface3:  #e2eaee;
+  --border:    #d2dee5;
+  --border2:   #b8cbd5;
+  --accent:    #2f7375;
+  --accent2:   #a9672d;
+  --accent3:   #b85546;
+  --accent4:   #6e679e;
+  --text:      #20313e;
+  --text-dim:  #617584;
+  --text-mid:  #4b6070;
+  --red:       #b54f45;
+  --yellow:    #9a6b18;
+  --blue:      #3d6f9f;
+  --green:     #2d8065;
+  --card-bg2:  #edf2f4;
+  --card-bg:   #ffffff;
+}
+
+html { scrollbar-gutter: stable; }
+
+body {
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: .005em;
+}
+
+::selection { background: rgba(107,181,174,.28); color: var(--text); }
+
+header {
+  padding-left: clamp(16px, 3vw, 32px);
+  padding-right: clamp(16px, 3vw, 32px);
+  gap: 12px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025);
+}
+
+.logo {
+  font-size: 12px;
+  letter-spacing: .13em;
+  color: var(--accent);
+}
+.logo span { color: var(--accent2); }
+.header-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.header-meta {
+  max-width: 300px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.year-range-badge,
+.subject-field {
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  font-size: 11px;
+}
+.year-range-badge {
+  background: rgba(107,181,174,.12);
+  border-color: rgba(107,181,174,.28);
+  color: var(--accent);
+}
+body.light .year-range-badge {
+  background: rgba(47,115,117,.10);
+  border-color: rgba(47,115,117,.24);
+}
+.behavior-range-badge {
+  background: rgba(130,197,168,.12);
+  border-color: rgba(130,197,168,.28);
+  color: var(--green);
+}
+body.light .behavior-range-badge {
+  background: rgba(45,128,101,.10);
+  border-color: rgba(45,128,101,.24);
+  color: var(--green);
+}
+.subject-field {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+}
+.subject-field .year-range-badge {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-mid);
+}
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--surface2);
+  border-color: var(--border2);
+  color: var(--text);
+}
+.theme-toggle:hover { background: var(--surface3); }
+
+.tab-bar {
+  background: var(--bg);
+  padding-left: clamp(12px, 3vw, 32px);
+  padding-right: clamp(12px, 3vw, 32px);
+  gap: 6px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025);
+}
+.tab {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 10px 10px 0 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 650;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.tab:hover { color: var(--text); background: var(--surface2); }
+.tab.active {
+  color: var(--accent);
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+}
+.tab-label {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  letter-spacing: .02em;
+}
+.tab.active .tab-label { color: var(--accent); opacity: .78; }
+
+.panel {
+  padding: 24px clamp(14px, 3vw, 32px) 56px;
+  max-width: 1480px;
+}
+
+.filter-bar {
+  gap: 12px 14px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: 12px;
+}
+.filter-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: .06em;
+}
+.filter-sep { height: 26px; background: var(--border); opacity: .8; }
+
+select, input[type="text"] {
+  min-height: 36px;
+  background: var(--surface2);
+  border-color: var(--border2);
+  border-radius: 8px;
+  padding: 7px 11px;
+  color: var(--text);
+}
+select:hover, input[type="text"]:hover { border-color: var(--accent); }
+select:focus, input[type="text"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107,181,174,.16);
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid rgba(107,181,174,.55);
+  outline-offset: 2px;
+}
+
+.mode-toggle,
+.view-controls-seg {
+  background: var(--surface2);
+  border-color: var(--border2);
+  border-radius: 9px;
+  padding: 3px;
+}
+.mode-btn,
+.seg-btn {
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: var(--text-dim);
+}
+.mode-btn.active { background: var(--accent); color: #fff; }
+.seg-btn.active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(9,23,36,.22);
+}
+.retaker-switch {
+  min-height: 32px;
+  padding: 5px 11px;
+  background: var(--surface2);
+  border-color: var(--border2);
+  color: var(--text-dim);
+}
+.retaker-switch.active {
+  background: rgba(210,163,95,.14);
+  border-color: rgba(210,163,95,.5);
+  color: var(--accent2);
+}
+
+.stat-row {
+  grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  min-height: 94px;
+  padding: 16px 16px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border-color: var(--border);
+}
+.stat-card::before { display: none; }
+.stat-card .val {
+  font-size: 26px;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+.stat-card .lbl {
+  color: var(--text-mid);
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: .04em;
+}
+.stat-card .sub { color: var(--text-dim); }
+
+.chart-grid { gap: 16px; margin-bottom: 16px; }
+.chart-card {
+  padding: 18px 18px 20px;
+  border-radius: 14px;
+  background: var(--surface);
+  border-color: var(--border);
+}
+.chart-title {
+  margin-bottom: 16px;
+  color: var(--text);
+  font-size: 12px;
+  letter-spacing: .025em;
+}
+.chart-title .dot { width: 8px; height: 8px; }
+.chart-wrap { scrollbar-color: var(--border2) transparent; }
+
+.enrollment-summary-table { font-size: 12px; color: var(--text-mid); }
+.enrollment-summary-table th {
+  padding: 8px 7px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.enrollment-summary-table td { padding: 8px 7px; }
+.enrollment-summary-table tbody tr:nth-child(even) td { background: rgba(255,255,255,.018); }
+.enrollment-summary-table tbody tr:hover td { background: var(--surface2); }
+
+.chart-card .filter-bar {
+  padding: 6px 0;
+  margin-bottom: 10px;
+  background: transparent;
+  border-color: transparent;
+}
+.chart-card .filter-label { font-size: 11px; }
+
+.notice {
+  background: rgba(210,163,95,.10);
+  border-left: 2px solid var(--accent2);
+  color: var(--accent2);
+  border-radius: 6px;
+}
+.empty-state { padding: 48px 24px; color: var(--text-dim); }
+.filter-collapse-bar {
+  border-color: var(--border2);
+  background: var(--surface);
+  border-radius: 10px;
+}
+
+.search-results {
+  background: var(--surface);
+  border-color: var(--border2);
+  box-shadow: 0 12px 28px rgba(5,17,29,.28);
+}
+.search-item { padding: 10px 12px; }
+.search-item:hover { background: var(--surface2); }
+
+.tag-red    { background: rgba(228,134,124,.12); color: var(--red); border-color: rgba(228,134,124,.25); }
+.tag-yellow { background: rgba(225,180,98,.12); color: var(--yellow); border-color: rgba(225,180,98,.25); }
+.tag-blue   { background: rgba(130,172,216,.12); color: var(--blue); border-color: rgba(130,172,216,.25); }
+
+/* Behavior and at-risk modules share the same surfaces without touching
+   their renderers or data contracts. */
+#panelL .chart-card,
+#panelR .chart-card,
+#panelR .r-cohort-card,
+#panelR .r-flag-card,
+#panelR .r-presc-card {
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: 12px;
+}
+#panelL .chart-card { padding: 18px; }
+#panelR .r-cohort-card,
+#panelR .r-flag-card,
+#panelR .r-presc-card { box-shadow: none; }
+#panelR .r-cohort-value { color: var(--accent); }
+
+@media (max-width: 900px) {
+  .header-meta { max-width: 220px; }
+  .panel { padding-top: 20px; }
+}
+
+@media (max-width: 700px) {
+  :root { --header-h: 104px; }
+  body header {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .header-title { font-size: 13px; }
+  .header-meta { max-width: none; }
+  .meta-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    border-radius: 8px;
+    padding: 5px 9px;
+  }
+  .tab-bar {
+    padding: 0 10px;
+    gap: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+  .tab-bar::-webkit-scrollbar { display: block; height: 4px; }
+  .tab-bar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 999px; }
+  .tab { flex: 0 0 auto; padding: 0 14px; }
+  .panel { padding: 16px 10px 40px; }
+  .chart-card { padding: 15px 14px 16px; }
+  .stat-row { gap: 10px; }
+  .stat-card { padding: 14px 13px 12px; }
+  .stat-card .val { font-size: 23px; }
+  .filter-bar { padding: 12px; }
+}
+
+@media (max-width: 600px) {
+  .filter-label { font-size: 11px; }
+  select, input[type="text"] { min-height: 38px; }
+  .mode-btn, .seg-btn { min-height: 34px; }
+  .chart-title { align-items: flex-start; line-height: 1.45; }
+  .chart-title-actions { margin-left: auto; }
+  .behavior-radar-wrap { height: 310px; }
+  #clusterSummaryCards .ladash-cc-wrap {
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--border2) transparent !important;
+  }
+  #clusterSummaryCards .ladash-cc-wrap::-webkit-scrollbar { display: block; height: 4px; }
+  #clusterSummaryCards .ladash-cc-wrap::-webkit-scrollbar-thumb {
+    background: var(--border2);
+    border-radius: 999px;
+  }
+  .print-group { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
 </style>
 <!-- 核心篩選邏輯模組 -->
 <!--
@@ -1323,7 +1740,8 @@ body.light .behavior-range-badge {
   </div>
   <div class="header-meta" id="metaInfo">載入中...</div>
   <button type="button" class="meta-toggle" id="metaToggle" data-action="toggleMetaInfo" aria-expanded="false">資訊</button>
-  <button type="button" class="theme-toggle" id="themeToggle" data-action="toggleTheme" title="切換深/淺色模式">🌙</button>
+  <button type="button" class="theme-toggle" id="themeToggle" data-action="toggleTheme"
+          aria-label="切換深／淺色模式" title="切換深／淺色模式">🌙</button>
 </header>
 
 <!-- SVG 懸浮 Tooltip -->
@@ -2765,29 +3183,29 @@ body.light .behavior-range-badge {
 </div>
 
 <!-- 核心篩選邏輯模組（Bug E fix: moved from <head> to guarantee defer order） -->
-<script defer src="js/filter-engine.js?v=202608121257"></script>
+<script defer src="js/filter-engine.js?v=202608121409"></script>
 <!-- 主應用邏輯（依賴 filter-engine.js 與 CDN Chart.js） -->
-<script defer src="js/main.js?v=202608121257"></script>
+<script defer src="js/main.js?v=202608121409"></script>
 
 <!-- ══ D3.js v7.9.0（LSA 有向圖，本地化：js/vendor/d3.min.js）══ -->
 <script src="js/vendor/d3.min.js"></script>
 
 <!-- ══ 學習行為模組（依賴 main.js 全域變數）══ -->
-<script defer src="js/chart-registry.js?v=202608121257"></script>
-<script defer src="js/help-modal.js?v=202608121257"></script>
-<script defer src="js/behavior-loader.js?v=202608121257"></script>
-<script defer src="js/tab-behavior-radar.js?v=202608121257"></script>
-<script defer src="js/tab-behavior-correlation.js?v=202608121257"></script>
-<script defer src="js/tab-behavior-time.js?v=202608121257"></script>
-<script defer src="js/tab-behavior-lsa.js?v=202608121257"></script>
-<script defer src="js/tab-behavior-cross.js?v=202608121257"></script>
-<script defer src="js/tab-behavior-warning.js?v=202608121257"></script>
+<script defer src="js/chart-registry.js?v=202608121409"></script>
+<script defer src="js/help-modal.js?v=202608121409"></script>
+<script defer src="js/behavior-loader.js?v=202608121409"></script>
+<script defer src="js/tab-behavior-radar.js?v=202608121409"></script>
+<script defer src="js/tab-behavior-correlation.js?v=202608121409"></script>
+<script defer src="js/tab-behavior-time.js?v=202608121409"></script>
+<script defer src="js/tab-behavior-lsa.js?v=202608121409"></script>
+<script defer src="js/tab-behavior-cross.js?v=202608121409"></script>
+<script defer src="js/tab-behavior-warning.js?v=202608121409"></script>
 
 <!-- ══ 行為初始化 + 高風險報告（依賴 behavior 模組）══ -->
-<script defer src="js/behavior-init.js?v=202608121257"></script>
-<script defer src="js/at-risk-report.js?v=202608121257"></script>
+<script defer src="js/behavior-init.js?v=202608121409"></script>
+<script defer src="js/at-risk-report.js?v=202608121409"></script>
 <!-- ══ 列印面板（依賴所有 behavior 模組與 ChartRegistry）══ -->
-<script defer src="js/print-panel.js?v=202608121257"></script>
+<script defer src="js/print-panel.js?v=202608121409"></script>
 
 
 </body>

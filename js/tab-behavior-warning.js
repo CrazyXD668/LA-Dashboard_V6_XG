@@ -287,6 +287,10 @@ const BehaviorWarningTab = (() => {
     _renderAll();
   }
 
+  function reRender() {
+    if (_warningData) _renderAll();
+  }
+
   function _renderEmpty(msg) {
     const el = document.getElementById("sub-warning") || document.getElementById("warningContent");
     if (!el) return;
@@ -683,5 +687,5 @@ const BehaviorWarningTab = (() => {
     setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
-  return { init, resetFilters };
+  return { init, resetFilters, reRender };
 })();
