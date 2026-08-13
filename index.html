@@ -1718,6 +1718,486 @@ textarea:focus-visible,
     transition-duration: .01ms !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   UI/UX POLISH PASS — restrained learning-data workbench
+   Presentation only: existing ids, data-action hooks, chart hosts,
+   data paths and renderers remain unchanged.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+  --bg:        #0e1724;
+  --surface:   #122333;
+  --surface2:  #192d3d;
+  --surface3:  #213c4c;
+  --border:    #2b4658;
+  --border2:   #456779;
+  --accent:    #77c9bd;
+  --accent2:   #e4b574;
+  --accent3:   #df8b78;
+  --accent4:   #b8b0dc;
+  --text:      #f0f5f5;
+  --text-dim:  #9aadb7;
+  --text-mid:  #c4d1d6;
+  --red:       #ee8c83;
+  --yellow:    #e8bd6b;
+  --blue:      #8db7df;
+  --green:     #83c9aa;
+  --card-bg2:  #192d3d;
+  --card-bg:   #122333;
+  --focus-ring: rgba(119,201,189,.72);
+  --focus-soft: rgba(119,201,189,.20);
+}
+
+body.light {
+  color-scheme: light;
+  --bg:        #f2f6f4;
+  --surface:   #ffffff;
+  --surface2:  #edf3f0;
+  --surface3:  #e1ebe7;
+  --border:    #d0ded9;
+  --border2:   #afc6bc;
+  --accent:    #2f7375;
+  --accent2:   #986126;
+  --accent3:   #a84f44;
+  --accent4:   #68619a;
+  --text:      #1b2e35;
+  --text-dim:  #536b76;
+  --text-mid:  #3d5864;
+  --red:       #a84f44;
+  --yellow:    #8a6018;
+  --blue:      #3d6f9f;
+  --green:     #2c785f;
+  --card-bg2:  #edf3f0;
+  --card-bg:   #ffffff;
+  --focus-ring: rgba(47,115,117,.58);
+  --focus-soft: rgba(47,115,117,.16);
+}
+
+html {
+  background: var(--bg);
+  scrollbar-color: var(--border2) var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+::selection { background: rgba(119,201,189,.28); color: var(--text); }
+body.light ::selection { background: rgba(47,115,117,.18); }
+
+header {
+  background: var(--surface);
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 0 rgba(255,255,255,.035);
+}
+
+.logo { color: var(--accent); }
+.logo span { color: var(--accent2); }
+.header-title { color: var(--text); }
+.header-meta { color: var(--text-dim); }
+
+.tab-bar {
+  background: var(--surface);
+  border-bottom-color: var(--border);
+  gap: 4px;
+}
+
+.tab {
+  min-height: 44px;
+  height: 44px;
+  padding-inline: 15px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 9px 9px 0 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 650;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.tab:hover { background: var(--surface2); color: var(--text); }
+.tab.active {
+  margin-bottom: 0;
+  background: var(--surface2);
+  border: 0;
+  border-bottom: 2px solid var(--accent);
+  color: var(--accent);
+}
+.tab-label { color: var(--text-dim); }
+.tab.active .tab-label { color: var(--accent); opacity: .82; }
+.tab-main,
+.section-title-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.tab-icon,
+.section-icon,
+.control-icon,
+.status-icon,
+.theme-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+.tab-icon { width: 16px; height: 16px; }
+.section-icon { width: 18px; height: 18px; color: var(--accent); }
+.control-icon { width: 15px; height: 15px; }
+.status-icon { width: 14px; height: 14px; }
+.behavior-sub-icon { width: 16px; height: 16px; flex: 0 0 auto; }
+.theme-icon { width: 19px; height: 19px; }
+.theme-icon-light { display: none; }
+body.light .theme-icon-dark { display: none; }
+body.light .theme-icon-light { display: block; }
+
+.panel {
+  padding-top: 28px;
+  padding-bottom: 60px;
+}
+
+.filter-bar {
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: 12px;
+  padding: 13px 16px;
+  gap: 11px 14px;
+}
+.filter-label { color: var(--text-dim); }
+.filter-sep { background: var(--border); }
+
+select,
+input[type="text"],
+textarea {
+  min-height: 38px;
+  background: var(--surface2);
+  border-color: var(--border2);
+  color: var(--text);
+  border-radius: 8px;
+}
+select:hover,
+input[type="text"]:hover,
+textarea:hover { border-color: var(--accent); }
+select:focus,
+input[type="text"]:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+select option { background: var(--surface2); color: var(--text); }
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 22px;
+  background: transparent;
+  accent-color: var(--accent);
+  touch-action: manipulation;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  background: var(--surface3);
+}
+input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -8px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--border2);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  background: var(--surface3);
+}
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--border2);
+}
+
+button {
+  font-family: inherit;
+  touch-action: manipulation;
+}
+.tab,
+.meta-toggle,
+.mode-btn,
+.seg-btn,
+#panelD .view-btn,
+.retaker-switch,
+.behavior-sub-btn,
+.print-quick-btn,
+.print-preview-close,
+.tl-behavior-btn,
+.hover-accent-btn {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.behavior-sub-btn { font-size: 13px !important; }
+.hover-accent-btn { min-height: 36px; padding-inline: 12px; }
+#aResetBtn,
+#cResetBtn,
+#dResetBtn,
+#lResetBtn { font-size: 13px !important; }
+button:not(:disabled) { cursor: pointer; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { cursor: not-allowed; }
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.mode-toggle,
+.view-controls-seg,
+#panelD .view-toggle {
+  background: var(--surface2);
+  border-color: var(--border2);
+  border-radius: 9px;
+}
+.mode-btn,
+.seg-btn,
+#panelD .view-btn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding-inline: 12px;
+}
+.mode-btn.active,
+#panelD .view-btn.active {
+  background: var(--accent);
+  color: #10262a;
+}
+.seg-btn.active {
+  background: var(--surface);
+  color: var(--accent);
+}
+.retaker-switch {
+  min-height: 36px;
+  gap: 7px;
+  padding-inline: 12px;
+  border-radius: 999px;
+}
+.retaker-switch.active {
+  background: rgba(228,181,116,.14);
+  border-color: rgba(228,181,116,.56);
+  color: var(--accent2);
+}
+.status-icon-pass { color: var(--green); }
+.status-icon-fail { color: var(--red); }
+
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  border-color: var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+}
+.theme-toggle:hover { background: var(--surface3); border-color: var(--accent); color: var(--accent); }
+
+.stat-row {
+  gap: 10px;
+  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
+}
+.stat-card {
+  min-height: 90px;
+  padding: 15px 14px 13px;
+  border-radius: 12px;
+  background: var(--surface);
+  border-color: var(--border);
+}
+.stat-card .val { font-size: 24px; letter-spacing: -.025em; }
+.stat-card .lbl { color: var(--text-mid); font-size: 11px; line-height: 1.35; }
+.stat-card .sub { color: var(--text-dim); }
+
+/* Keep the nine-metric cohort summary in one calm, scannable row on wide screens. */
+@media (min-width: 1100px) {
+  #dStats.stat-row { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+}
+@media (min-width: 701px) and (max-width: 1099px) {
+  #dStats.stat-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+.chart-grid { gap: 18px; margin-bottom: 18px; }
+.chart-card {
+  padding: 18px 18px 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: none;
+}
+.chart-title {
+  margin-bottom: 16px;
+  color: var(--text-mid);
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.chart-title .dot { width: 7px; height: 7px; }
+.chart-wrap { scrollbar-color: var(--border2) transparent; }
+
+.chart-info-btn,
+.chart-expand-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  margin-left: 4px;
+  border-radius: 9px;
+  border-color: var(--border2);
+  background: var(--surface2);
+  color: var(--text-dim);
+}
+.chart-info-btn:hover,
+.chart-expand-btn:hover,
+.chart-expand-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #10262a;
+}
+
+.search-icon { display: inline-flex; align-items: center; justify-content: center; }
+.search-icon svg { width: 16px; height: 16px; display: block; }
+.search-results {
+  background: var(--surface);
+  border-color: var(--border2);
+  box-shadow: 0 14px 30px rgba(5,17,29,.28);
+}
+.search-item { min-height: 44px; }
+
+.print-choice { min-height: 46px; }
+.print-quick-btn,
+.print-preview-close { min-height: 36px; }
+
+.behavior-sub-btn {
+  min-height: 38px !important;
+  background: var(--surface2) !important;
+  border-color: var(--border2) !important;
+  color: var(--text-dim) !important;
+}
+.behavior-sub-btn:hover,
+.behavior-sub-btn.is-active {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #10262a !important;
+}
+body.light .mode-btn.active,
+body.light #panelD .view-btn.active,
+body.light .behavior-sub-btn:hover,
+body.light .behavior-sub-btn.is-active {
+  color: #fff !important;
+}
+.ladash-hscroll-row { scrollbar-color: var(--border2) transparent; }
+
+.loading-overlay {
+  background: rgba(14,23,36,.90) !important;
+  color: var(--text) !important;
+}
+body.light .loading-overlay { background: rgba(242,246,244,.92) !important; }
+
+.pwa-install-banner {
+  background: var(--surface);
+  border-color: var(--border2);
+  color: var(--text);
+}
+.pwa-install-banner .banner-text { color: var(--text); }
+.pwa-install-banner .banner-text strong { color: var(--accent); }
+.sw-update-banner {
+  background: var(--surface2);
+  border: 1px solid var(--accent);
+  color: var(--text);
+}
+.sw-update-banner button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #10262a;
+}
+
+@media (display-mode: standalone) {
+  body { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  header { box-shadow: 0 1px 0 rgba(255,255,255,.045); }
+}
+
+@media (max-width: 700px) {
+  :root { --header-h: 112px; --tab-h: 54px; }
+  body header {
+    height: calc(var(--header-h) + env(safe-area-inset-top));
+    padding: calc(env(safe-area-inset-top) + 8px) 12px 8px;
+  }
+  .header-title { font-size: 13px; }
+  .year-range-badge,
+  .subject-field { font-size: 10px; }
+  .theme-toggle { width: 44px; height: 44px; border-radius: 12px; }
+  .tab-bar {
+    height: var(--tab-h);
+    top: calc(var(--header-h) + env(safe-area-inset-top));
+    padding-inline: 10px;
+    gap: 4px;
+  }
+  .tab { min-height: 46px; height: 46px; padding-inline: 14px; }
+  .tab-icon { width: 15px; height: 15px; }
+  .panel { padding: 18px 10px 48px; }
+  .filter-bar { padding: 12px; gap: 10px; }
+  .mode-btn,
+  .seg-btn,
+  #panelD .view-btn,
+  .retaker-switch,
+  .meta-toggle,
+  .behavior-sub-btn,
+  .print-quick-btn,
+  .print-preview-close,
+  .tl-behavior-btn,
+  .hover-accent-btn {
+    min-height: 40px;
+    font-size: 14px;
+  }
+  .behavior-sub-btn { font-size: 14px !important; }
+  #aResetBtn,
+  #cResetBtn,
+  #dResetBtn,
+  #lResetBtn { font-size: 14px !important; }
+  .chart-card { padding: 15px 14px 17px; }
+  .chart-info-btn,
+  .chart-expand-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  .stat-card { min-height: 88px; padding: 14px 12px 12px; }
+  .stat-card .val { font-size: 22px; }
+  .chart-card.chart-expanded {
+    top: calc(var(--header-h) + var(--tab-h) + env(safe-area-inset-top) + 8px);
+    left: 8px;
+    right: 8px;
+    bottom: calc(env(safe-area-inset-bottom) + 8px);
+  }
+}
+
+@media (forced-colors: active) {
+  .tab.active,
+  button:focus-visible,
+  select:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible { forced-color-adjust: none; outline: 2px solid CanvasText; }
+}
 </style>
 <!-- 核心篩選邏輯模組 -->
 <!--
@@ -1741,7 +2221,15 @@ textarea:focus-visible,
   <div class="header-meta" id="metaInfo">載入中...</div>
   <button type="button" class="meta-toggle" id="metaToggle" data-action="toggleMetaInfo" aria-expanded="false">資訊</button>
   <button type="button" class="theme-toggle" id="themeToggle" data-action="toggleTheme"
-          aria-label="切換深／淺色模式" title="切換深／淺色模式">🌙</button>
+          aria-label="切換深／淺色模式" title="切換深／淺色模式">
+    <svg class="theme-icon theme-icon-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M20.2 15.7A8.5 8.5 0 0 1 8.3 3.8 8.5 8.5 0 1 0 20.2 15.7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg class="theme-icon theme-icon-light" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M12 2.5v2M12 19.5v2M4.4 4.4l1.4 1.4M18.2 18.2l1.4 1.4M2.5 12h2M19.5 12h2M4.4 19.6l1.4-1.4M18.2 5.8l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  </button>
 </header>
 
 <!-- SVG 懸浮 Tooltip -->
@@ -1749,27 +2237,27 @@ textarea:focus-visible,
 
 <div class="tab-bar" role="tablist" aria-label="分析面板">
   <button type="button" class="tab active" id="tab-btn-D" role="tab" aria-selected="true"  aria-controls="panelD" data-action="switchTab" data-arg="D">
-    <span>跨屆比較</span>
+    <span class="tab-main"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 17.5 9 12l4 3 7-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>跨屆比較</span></span>
     <span class="tab-label">Cohort Analysis</span>
   </button>
   <button type="button" class="tab" id="tab-btn-A" role="tab" aria-selected="false" aria-controls="panelA" data-action="switchTab" data-arg="A">
-    <span>班級輪廓</span>
+    <span class="tab-main"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="4" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="4" y="14" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="14" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span>班級輪廓</span></span>
     <span class="tab-label">Class Overview</span>
   </button>
   <button type="button" class="tab" id="tab-btn-C" role="tab" aria-selected="false" aria-controls="panelC" data-action="switchTab" data-arg="C">
-    <span>學生表現</span>
+    <span class="tab-main"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 19V10M12 19V5M19 19v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3.5 19.5h17" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>學生表現</span></span>
     <span class="tab-label">Performance &amp; Retaker</span>
   </button>
   <button type="button" class="tab" id="tab-btn-L" role="tab" aria-selected="false" aria-controls="panelL" data-action="switchTab" data-arg="L">
-    <span>📊 學習行為</span>
+    <span class="tab-main"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 17c2.2 0 2.2-8 4.5-8s2.3 6 4.5 6 2.3-10 4.5-10 2.3 8 4.5 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>學習行為</span></span>
     <span class="tab-label">Learning Behavior</span>
   </button>
   <button type="button" class="tab" id="tab-btn-R" role="tab" aria-selected="false" aria-controls="panelR" data-action="switchTab" data-arg="R">
-    <span>🔴 高風險報告</span>
+    <span class="tab-main"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.5 19 6v5.1c0 4.3-2.7 7.8-7 9.4-4.3-1.6-7-5.1-7-9.4V6l7-2.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v4.4M12 16.2h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>高風險報告</span></span>
     <span class="tab-label">At-Risk Report</span>
   </button>
   <button type="button" class="tab" id="tab-btn-P" role="tab" aria-selected="false" aria-controls="panelP" data-action="switchTab" data-arg="P">
-    <span>🖨 列印</span>
+    <span class="tab-main"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V4h10v4M7 17h10v3H7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5.5 8h13A2.5 2.5 0 0 1 21 10.5V16H3v-5.5A2.5 2.5 0 0 1 5.5 8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M17.5 11.5h.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><span>列印</span></span>
     <span class="tab-label">Print</span>
   </button>
 </div>
@@ -1829,7 +2317,7 @@ textarea:focus-visible,
     <button type="button" id="aRetakerSwitch" class="retaker-switch active"
             data-action="toggleRetakerSwitch" data-arg="A"
             title="切換是否納入來自前幾屆不及格、跨班重修的學生資料">
-      👤 含跨屆重修生
+      <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 19.5c.7-3.2 2.8-5 6.5-5s5.8 1.8 6.5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span class="retaker-label">含跨屆重修生</span>
     </button>
 
     <!-- 清除所有條件按鈕 -->
@@ -2009,8 +2497,8 @@ textarea:focus-visible,
       <span class="filter-label">及格狀況 Pass</span>
       <div class="mode-toggle">
         <button type="button" class="mode-btn active" id="cPassAll"  data-action="setCPass" data-arg="all">全體</button>
-        <button type="button" class="mode-btn"        id="cPassPass" data-action="setCPass" data-arg="pass">✅ 及格</button>
-        <button type="button" class="mode-btn"        id="cPassFail" data-action="setCPass" data-arg="fail">❌ 不及格</button>
+        <button type="button" class="mode-btn"        id="cPassPass" data-action="setCPass" data-arg="pass"><svg class="status-icon status-icon-pass" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12.5 4.3 4.3L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>及格</span></button>
+        <button type="button" class="mode-btn"        id="cPassFail" data-action="setCPass" data-arg="fail"><svg class="status-icon status-icon-fail" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m7 7 10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>不及格</span></button>
       </div>
     </div>
     <div class="filter-sep"></div>
@@ -2019,7 +2507,7 @@ textarea:focus-visible,
     <div class="filter-pair-search">
       <span class="filter-label">搜尋學號 Search ID</span>
       <div class="search-wrap">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="10.8" cy="10.8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.2 15.2 4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
         <input type="text" id="cSearch" placeholder="輸入學號片段（選填，高亮標示）"
                autocomplete="off">
         <div class="search-results" id="searchResults"></div>
@@ -2030,7 +2518,7 @@ textarea:focus-visible,
     <button type="button" id="cRetakerSwitch" class="retaker-switch active"
             data-action="toggleRetakerSwitch" data-arg="C"
             title="切換是否納入來自前幾屆不及格、跨班重修的學生資料">
-      👤 含跨屆重修生
+      <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 19.5c.7-3.2 2.8-5 6.5-5s5.8 1.8 6.5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span class="retaker-label">含跨屆重修生</span>
     </button>
   </div>
 
@@ -2041,7 +2529,7 @@ textarea:focus-visible,
     <div class="filter-pair">
       <span class="filter-label">搜尋學號 <span style="color:var(--red)">*必填</span></span>
       <div class="search-wrap">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="10.8" cy="10.8" r="5.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.2 15.2 4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
         <input type="text" id="cSearchRetake" placeholder="請輸入學號片段以查詢重修記錄"
                autocomplete="off">
         <div class="search-results" id="searchResultsRetake"></div>
@@ -2323,7 +2811,7 @@ textarea:focus-visible,
     <button type="button" id="dRetakerSwitch" class="retaker-switch active"
             data-action="toggleRetakerSwitch" data-arg="D"
             title="切換是否納入來自前幾屆不及格、跨班重修的學生資料">
-      👤 含跨屆重修生
+      <svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 19.5c.7-3.2 2.8-5 6.5-5s5.8 1.8 6.5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span class="retaker-label">含跨屆重修生</span>
     </button>
   </div>
 
@@ -2464,7 +2952,7 @@ textarea:focus-visible,
       </div>
 
       <div style="display:flex;align-items:center;margin:0 0 12px;gap:8px">
-        <h5 style="margin:0;font-weight:600;flex:1">📊 學習行為分析 <span style="font-size:0.8rem;color:var(--text-dim,#888);font-weight:400">Learning Behavior</span></h5>
+        <h5 style="margin:0;font-weight:600;flex:1"><span class="section-title-main"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 17c2.2 0 2.2-8 4.5-8s2.3 6 4.5 6 2.3-10 4.5-10 2.3 8 4.5 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>學習行為分析</span></span> <span style="font-size:0.8rem;color:var(--text-dim,#888);font-weight:400">Learning Behavior</span></h5>
         <button type="button" id="lResetBtn" class="hover-accent-btn" data-action="resetBehaviorFilters"
                 style="padding:4px 12px;border-radius:6px;border:1px solid var(--border2);
                        background:var(--surface2);color:var(--text-dim);font-size:10px;cursor:pointer;
@@ -2483,37 +2971,37 @@ textarea:focus-visible,
                 data-action="behaviorSwitchSub"
                 style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent,#3498db);
                        cursor:pointer;font-size:0.82rem">
-          🕸 資源使用雷達圖
+          <svg class="behavior-sub-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 3 7.8 5.5-3 9H7.2l-3-9L12 3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m12 8 3.6 2.5-1.4 4.2h-4.4l-1.4-4.2L12 8Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 3v5M4.2 8.5 8.4 10.5M19.8 8.5 15.6 10.5M7.2 17.5 10 15M16.8 17.5 14 15" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>資源使用雷達圖</span>
         </button>
         <button type="button" class="behavior-sub-btn" data-sub="time"
                 data-action="behaviorSwitchSub"
                 style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent,#3498db);
                        cursor:pointer;font-size:0.82rem">
-          🕐 時間分析
+          <svg class="behavior-sub-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5l3.3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>時間分析</span>
         </button>
         <button type="button" class="behavior-sub-btn" data-sub="correlation"
                 data-action="behaviorSwitchSub"
                 style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent,#3498db);
                        cursor:pointer;font-size:0.82rem">
-          📈 相關性分析
+          <svg class="behavior-sub-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 18 9 12l3.2 2.7L20 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>相關性分析</span>
         </button>
         <button type="button" class="behavior-sub-btn" data-sub="lsa"
                 data-action="behaviorSwitchSub"
                 style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent,#3498db);
                        cursor:pointer;font-size:0.82rem">
-          🔗 序列轉移
+          <svg class="behavior-sub-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 14.5 8 16a3.5 3.5 0 0 1-5-5l2.2-2.2a3.5 3.5 0 0 1 5 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m14.5 9.5 1.5-1.5a3.5 3.5 0 0 1 5 5l-2.2 2.2a3.5 3.5 0 0 1-5 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m8.5 15.5 7-7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>序列轉移</span>
         </button>
         <button type="button" class="behavior-sub-btn" data-sub="cross"
                 data-action="behaviorSwitchSub"
                 style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent,#3498db);
                        cursor:pointer;font-size:0.82rem">
-          🎯 行為預測分析
+          <svg class="behavior-sub-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg><span>行為預測分析</span>
         </button>
         <button type="button" class="behavior-sub-btn" data-sub="warning"
                 data-action="behaviorSwitchSub"
                 style="padding:5px 14px;border-radius:20px;border:1px solid var(--accent,#3498db);
                        cursor:pointer;font-size:0.82rem">
-          🔮 提前預警
+          <svg class="behavior-sub-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.5 20 19H4L12 3.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 9v4.5M12 16.5v.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>提前預警</span>
         </button>
       </div>
 
@@ -3147,7 +3635,7 @@ textarea:focus-visible,
 <!-- ══ PANEL P (列印) ══ -->
 <div class="panel" id="panelP" role="tabpanel" aria-labelledby="tab-btn-P">
   <div style="padding:16px 0 8px">
-    <h2 style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:16px">🖨 預覽列印 Print Preview</h2>
+    <h2 style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:16px"><span class="section-title-main"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 8V4h10v4M7 17h10v3H7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5.5 8h13A2.5 2.5 0 0 1 21 10.5V16H3v-5.5A2.5 2.5 0 0 1 5.5 8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M17.5 11.5h.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><span>預覽列印</span></span> Print Preview</h2>
 
     <!-- 選擇要列印的圖表 -->
     <div class="print-selection-box">
@@ -3183,29 +3671,29 @@ textarea:focus-visible,
 </div>
 
 <!-- 核心篩選邏輯模組（Bug E fix: moved from <head> to guarantee defer order） -->
-<script defer src="js/filter-engine.js?v=202608121409"></script>
+<script defer src="js/filter-engine.js?v=202608131246"></script>
 <!-- 主應用邏輯（依賴 filter-engine.js 與 CDN Chart.js） -->
-<script defer src="js/main.js?v=202608121409"></script>
+<script defer src="js/main.js?v=202608131246"></script>
 
 <!-- ══ D3.js v7.9.0（LSA 有向圖，本地化：js/vendor/d3.min.js）══ -->
 <script src="js/vendor/d3.min.js"></script>
 
 <!-- ══ 學習行為模組（依賴 main.js 全域變數）══ -->
-<script defer src="js/chart-registry.js?v=202608121409"></script>
-<script defer src="js/help-modal.js?v=202608121409"></script>
-<script defer src="js/behavior-loader.js?v=202608121409"></script>
-<script defer src="js/tab-behavior-radar.js?v=202608121409"></script>
-<script defer src="js/tab-behavior-correlation.js?v=202608121409"></script>
-<script defer src="js/tab-behavior-time.js?v=202608121409"></script>
-<script defer src="js/tab-behavior-lsa.js?v=202608121409"></script>
-<script defer src="js/tab-behavior-cross.js?v=202608121409"></script>
-<script defer src="js/tab-behavior-warning.js?v=202608121409"></script>
+<script defer src="js/chart-registry.js?v=202608131246"></script>
+<script defer src="js/help-modal.js?v=202608131246"></script>
+<script defer src="js/behavior-loader.js?v=202608131246"></script>
+<script defer src="js/tab-behavior-radar.js?v=202608131246"></script>
+<script defer src="js/tab-behavior-correlation.js?v=202608131246"></script>
+<script defer src="js/tab-behavior-time.js?v=202608131246"></script>
+<script defer src="js/tab-behavior-lsa.js?v=202608131246"></script>
+<script defer src="js/tab-behavior-cross.js?v=202608131246"></script>
+<script defer src="js/tab-behavior-warning.js?v=202608131246"></script>
 
 <!-- ══ 行為初始化 + 高風險報告（依賴 behavior 模組）══ -->
-<script defer src="js/behavior-init.js?v=202608121409"></script>
-<script defer src="js/at-risk-report.js?v=202608121409"></script>
+<script defer src="js/behavior-init.js?v=202608131246"></script>
+<script defer src="js/at-risk-report.js?v=202608131246"></script>
 <!-- ══ 列印面板（依賴所有 behavior 模組與 ChartRegistry）══ -->
-<script defer src="js/print-panel.js?v=202608121409"></script>
+<script defer src="js/print-panel.js?v=202608131246"></script>
 
 
 </body>

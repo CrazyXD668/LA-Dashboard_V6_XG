@@ -1060,8 +1060,6 @@ function populateFilters() {
   )]);
   const aTrend = document.getElementById('aTrendSheet');
   aTrend.innerHTML = trendSheets.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-
-  populateCYearFilter();
 }
 
 function cloneClassSummary(c) {
@@ -1730,10 +1728,15 @@ function resetCFilters() {
   if (cCurrentView === 'retake') {
     _resetCRetakeFilters();
     document.getElementById('cStats').innerHTML = '';
-    document.getElementById('bStats').innerHTML = '';
     const hint = document.getElementById('cRetakeSearchHint');
     if (hint) hint.style.setProperty('display', '');
-    _syncCProfileVisibility();
+    // BUGFIX-0812: 原本直接清空 bStats 後即結束，未呼叫任何 render 函式，
+    // 導致「重修概況統計」4 張卡片被清空後不會重新填入內容，需切換分頁
+    // （觸發 switchCView → renderCView）才會重新出現。bStats 內容
+    // （getRetakerRecords() 彙總）本不受搜尋學號欄位影響，改為呼叫
+    // renderCView() 立即重新渲染，比照 general 分支與 resetAFilters()／
+    // resetDFilters() 既有慣例（reset 後一律接著呼叫對應 render 函式）。
+    renderCView();
   } else {
     _resetCGeneralFilters();
     renderCView();
@@ -1764,11 +1767,9 @@ function _resetCGeneralFilters() {
   if (searchEl) searchEl.value = '';
   const searchBox = document.getElementById('searchResults');
   if (searchBox) { searchBox.classList.remove('open'); searchBox.innerHTML = ''; }
-  // 清除學生成績輪廓區塊與搜尋提示
+  // 清除學生成績輪廓區塊
   const profileWrap = document.getElementById('profileWrap');
   if (profileWrap) { profileWrap.innerHTML = ''; profileWrap.style.setProperty('margin-bottom', ''); } // CSP-V5-FIX
-  const searchHint = document.getElementById('cSearchHint');
-  if (searchHint) searchHint.style.setProperty('display', '');
   ['cTypePrac'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) { btn.disabled = false; btn.style.setProperty('opacity', ''); } // CSP-V7-FIX
@@ -1921,7 +1922,6 @@ function initCPanel() {
   if (!DATA) return;
   if (!_cPanelInited) {
     // First entry only: populate dropdowns and set initial defaults
-    populateCYearFilter();
     populateCFilterSem();
     _applyCProgramDisabledState('all');
     _syncRetakerBtn('C');
@@ -1941,22 +1941,6 @@ function populateCFilterSem() {
   const sems = [...DATA.meta.semesters].sort((a,b) => Number(b)-Number(a));
   sel.innerHTML = '<option value="all">全部學期 All</option>' +
     sems.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(semLabel(s))}</option>`).join('');
-}
-
-function populateCYearFilter() {
-  const sel = document.getElementById('cFilterYear');
-  if (!sel || !DATA) return;
-  const sems = (DATA.meta.semesters || []).map(String);
-  const years = [...new Set(sems.map(s => s.slice(0,3)))].sort((a,b) => b-a);
-  let html = '<option value="all">全部學年</option>';
-  years.forEach(yr => {
-    const sem1 = yr+'1', sem2 = yr+'2';
-    html += `<optgroup label="${yr} 學年度">`;
-    if (sems.includes(sem1)) html += `<option value="${sem1}">${yr}(1)</option>`;
-    if (sems.includes(sem2)) html += `<option value="${sem2}">${yr}(2)</option>`;
-    html += `</optgroup>`;
-  });
-  sel.innerHTML = html;
 }
 
 function getCFilteredRecords() {
@@ -2391,8 +2375,6 @@ function searchStudent() {
     if (pw && pw.innerHTML.trim().length > 0) {
       pw.innerHTML = '';
       pw.style.setProperty('margin-bottom', '');
-      const hint = document.getElementById('cSearchHint');
-      if (hint) hint.style.setProperty('display', '');
       renderCView();
     }
     return;
@@ -2452,8 +2434,6 @@ function selectStudent(sid) {
   const _stu = DATA.students?.[sid];
   if (!_stu) return;
   document.getElementById('cSearch').value = _stu.name_masked;
-  const hint = document.getElementById('cSearchHint');
-  if (hint) hint.style.setProperty('display', 'none'); // CSP-V5-FIX
   renderProfile(sid);
 }
 
@@ -3514,7 +3494,7 @@ function renderCorrelation(filtered) {
       btnContainer.id = 'corrToggleAllRegBtn';
       btnContainer.className = 'ladash-text-right ladash-mb6';
       const btn = document.createElement('button');
-      btn.textContent = _corrShowAllReg ? '▶ 隱藏全體回歸線' : '▷ 顯示全體回歸線';
+      btn.textContent = _corrShowAllReg ? '▶ 顯示全體回歸線' : '▷ 隱藏全體回歸線';
       btn.className = 'ladash-corr-regbtn';
       btn.style.setProperty('background', _corrShowAllReg ? 'rgba(247,164,79,0.18)' : 'transparent');
       btn.style.setProperty('color', _corrShowAllReg ? 'rgba(247,164,79,1)' : 'var(--text-dim,#9aa0b8)');
@@ -3699,9 +3679,8 @@ function toggleMetaInfo() {
 
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
-  document.getElementById('themeToggle').textContent = isLight ? '🌞' : '🌙';
   const themeMeta = document.getElementById('themeColorMeta');
-  if (themeMeta) themeMeta.setAttribute('content', isLight ? '#f3f6f8' : '#0e1724');
+  if (themeMeta) themeMeta.setAttribute('content', isLight ? '#f2f6f4' : '#0e1724');
   localStorage.setItem('la-theme', isLight ? 'light' : 'dark');
   refreshChartDefaults();
   if (!DATA) return;
@@ -3732,10 +3711,8 @@ function toggleTheme() {
   const saved = localStorage.getItem('la-theme');
   if (saved === 'light') {
     document.body.classList.add('light');
-    const btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = '🌞';
     const themeMeta = document.getElementById('themeColorMeta');
-    if (themeMeta) themeMeta.setAttribute('content', '#f3f6f8');
+    if (themeMeta) themeMeta.setAttribute('content', '#f2f6f4');
   }
   refreshChartDefaults();
 })();
@@ -3854,7 +3831,10 @@ function _syncRetakerBtn(panel) {
   if (!btn) return;
   const included = _retakerState[panel];
   btn.className = 'retaker-switch' + (included ? ' active' : '');
-  btn.textContent = included ? '👤 含跨屆重修生' : '👤 排除跨屆重修生';
+  const label = included ? '含跨屆重修生' : '排除跨屆重修生';
+  const labelEl = btn.querySelector('.retaker-label');
+  if (labelEl) labelEl.textContent = label;
+  else btn.textContent = label;
 
   const progEl = document.getElementById(
     panel === 'A' ? 'aFilterProgram' :
