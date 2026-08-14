@@ -703,6 +703,7 @@ const BehaviorCrossTab = (() => {
         },
       }],
     });
+    ChartRegistry.register("crossGroupChart", _chart);
   }
 
   // ── ④ R×S 5×5 熱力圖 ──────────────────────────────────────
@@ -1034,7 +1035,7 @@ const BehaviorCrossTab = (() => {
 
     const existing = getChart();
     if (existing) existing.destroy();
-    setChart(new Chart(canvas, {
+    const chart = new Chart(canvas, {
       type: "bar",
       data: { labels, datasets },
       options: {
@@ -1069,7 +1070,9 @@ const BehaviorCrossTab = (() => {
           y: { stacked: true },
         },
       },
-    }));
+    });
+    setChart(chart);
+    ChartRegistry.register(canvasId, chart);
   }
 
   function _renderTrajectoryChart() {

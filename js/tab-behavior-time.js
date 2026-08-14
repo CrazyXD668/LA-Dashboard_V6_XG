@@ -496,7 +496,11 @@ const BehaviorTimeTab = (() => {
           hintEl = document.createElement("div");
           hintEl.id = clusterHintId;
           hintEl.className = "ladash-c-time-cluster-hint";
-          canvas.parentNode?.insertBefore(hintEl, canvas);
+          // BUG-PWA-OVERFLOW-3 FIX: 同 BUG-PWA-OVERFLOW-2，canvas.parentNode
+          // 為固定 height:240px 的 .chart-wrap，插入 canvas 前會與 canvas
+          // 搶佔同一段固定高度、擠壓圖表。改插在 wrap 外層（卡片內）。
+          const wrap = canvas.parentNode;
+          (wrap?.parentNode || wrap)?.insertBefore(hintEl, wrap);
         }
         hintEl.textContent = hintMsg;
       } else if (hintEl) {
@@ -890,7 +894,13 @@ const BehaviorTimeTab = (() => {
       if (!badgeEl) {
         badgeEl = document.createElement("div");
         badgeEl.className = "time-slot-filter-badge";
-        canvas.parentElement.insertBefore(badgeEl, canvas);
+        // BUG-PWA-OVERFLOW-2 FIX: 原本插入 canvas.parentElement（.behavior-time-slot-wrap，
+        // 固定 height:280px）內、canvas 之前，會與 canvas 搶佔同一段固定高度，
+        // 導致 Chart.js 仍配置滿版 280px 給 canvas，環圈下方圖例被擠出 wrap／卡片
+        // 邊界外（PWA 窄螢幕尤其明顯）。改插在 wrap 外層（卡片內、wrap 之前），
+        // 讓卡片高度隨徽章內容自動撐開，不與固定高度的圖表容器互搶空間。
+        const wrap = canvas.parentElement;
+        (wrap?.parentElement || card).insertBefore(badgeEl, wrap);
       }
       // 與全域篩選雙向同步的 <select> 篩選列
       const semOptions     = [

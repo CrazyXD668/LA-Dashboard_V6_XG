@@ -874,6 +874,7 @@ const BehaviorCorrelationTab = (() => {
     .ladash-c-flex8-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
     .ladash-c-grad-labels{display:flex;justify-content:space-between;margin-top:2px;width:200px}
     .ladash-c-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+    .ladash-c-grid2>div{min-width:0}
     .ladash-c-iflex4{display:inline-flex;align-items:center;gap:4px}
     .ladash-c-xs-dim{font-size:.68rem;color:var(--text-dim,#888)}
     .ladash-c-xxs-dim{font-size:.70rem;color:var(--text-dim,#aaa)}
@@ -906,7 +907,7 @@ const BehaviorCorrelationTab = (() => {
     .ladash-c-op7{opacity:.7}
     .ladash-c-empty-msg{padding:12px;font-size:.82rem;color:var(--text-dim,#888)}
     .ladash-c-warn-box{padding:14px;background:rgba(230,126,34,.08);border:1px solid rgba(230,126,34,.3);border-radius:8px;font-size:.82rem;color:var(--accent3,#a04000)}
-    .ladash-c-chart260{position:relative;height:260px}
+    .ladash-c-chart260{position:relative;height:260px;width:100%}
     .ladash-c-chart320{position:relative;height:320px;width:100%}
     .ladash-c-chart340{position:relative;height:340px;width:100%}
     .ladash-c-grad-bar-wrap{position:relative;width:200px;height:16px;border-radius:4px;overflow:visible}
