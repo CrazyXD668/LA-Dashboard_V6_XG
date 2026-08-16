@@ -291,7 +291,18 @@ const BehaviorTimeTab = (() => {
 
   function _filterRows(rows) {
     return rows.filter(row => {
-      if (_filterSemester !== "all" && row.semester &&
+      // ROOT-CAUSE FIX(0815，/systematic-debugging 第四輪窮舉式稽核，預防性
+      // 修復)：原本 `row.semester &&` 短路判斷，若某筆記錄的 semester 缺失
+      // （_studentRows() 已將其正規化為空字串 ""，而非 undefined/null），
+      // 會使整個條件式短路為 false，讓該筆記錄「跳過學期篩選」、在任何
+      // 特定學期篩選下都照樣顯示——與 cluster/pass 篩選「缺值就不符合」
+      // 的一致行為相反。經查目前真實 time_distribution.json 全部 2,911
+      // 筆記錄 semester 皆無缺失，此路徑目前不會觸發；_normalizeSem("")
+      // 回傳 ""，不等於任何真實學期字串，故移除該短路判斷後行為安全
+      // （semester 缺失時正確視為「不符合特定學期篩選」而排除，與其他
+      // 欄位篩選邏輯一致），純屬預防性修復，避免未來若 ETL 產出缺
+      // semester 的記錄時，靜默污染每個特定學期的檢視畫面。
+      if (_filterSemester !== "all" &&
           _normalizeSem(row.semester) !== _normalizeSem(_filterSemester)) return false;
       if (_filterCluster !== "all" && row.cluster !== _filterCluster) return false;
       if (_filterPass !== "all") {

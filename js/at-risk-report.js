@@ -186,21 +186,32 @@ const AtRiskReportManager = (() => {
 
   // ── 學期切換 ────────────────────────────────────────────
   function switchSemester(sem) {
-    _radarFilter = null;
-    _highlightSemBtn(sem);
-
+    // ROOT-CAUSE FIX(0815，/systematic-debugging 第三輪窮舉式稽核發現)：
+    // 原本 _highlightSemBtn(sem) 在資料存在性檢查「之前」就執行——若 sem
+    // 沒有對應資料（例如未來 ETL 版本 available_semesters 與 by_semester
+    // 兩份清單不同步等異常情況；經查目前真實 at_risk_profile.json 兩者
+    // 完全一致，此為防禦性補強，非目前可重現的錯誤），使用者會看到新
+    // 學期按鈕已反白高亮，但下方雷達圖／溫度衰減／紅旗警示／處方建議等
+    // 全部卡片仍停留在切換前舊學期的畫面，兩者互相矛盾——與本次稽核在
+    // Panel D/A/C 找到並修正的「查無資料時忘記同步下游畫面」屬同一類
+    // 錯誤。改為先確認資料存在才呼叫 _highlightSemBtn()／更新
+    // _currentSem，資料缺失時完全不變動畫面與高亮狀態（維持原本學期的
+    // 一致畫面），僅記錄警告。
     let semData;
     if (sem === '__all__') {
       semData = _data.all_semesters;
-      if (!semData) return;
-      _currentSem     = '__all__';
-      _currentSemData = semData;
     } else {
-      if (!_data?.by_semester?.[sem]) return;
-      _currentSem     = sem;
-      _currentSemData = _data.by_semester[sem];
-      semData         = _currentSemData;
+      semData = _data?.by_semester?.[sem];
     }
+    if (!semData) {
+      console.warn('[AtRiskReportManager] 學期切換略過：查無對應資料', sem);
+      return;
+    }
+
+    _radarFilter = null;
+    _highlightSemBtn(sem);
+    _currentSem     = sem;
+    _currentSemData = semData;
 
     try {
       renderCohortSummary(semData.cohort_summary);

@@ -197,6 +197,18 @@ const FilterEngine = (() => {
     if (/重修|暑期|學分|補修|微免|遠距/i.test(stripped) || /R\d/i.test(stripped)) return 'retake_class';
     // 學士後護
     if (/學後護|學士後|學後/.test(stripped)) return 'post';
+    // ROOT-CAUSE FIX(0815，/systematic-debugging 第四輪窮舉式稽核，預防性
+    // 修復)：main.js classInfo() 對「健四二F」等非護理系特殊任務班級獨立
+    // 給予 program='non_nursing'（見 main.js 約625行處的完整說明），本檔
+    // 案頭註解 v1.1.0 明確記載「與 main.js classifyProgram 對齊」，但當時
+    // 只補了四技/學士後護格式，漏了 0805 才新增的 non_nursing 分類，導致
+    // 本函式將健四二F誤判為 null（呼叫方 fallback 成 'unknown'），而非
+    // main.js 的 'non_nursing'。經查目前唯一消費者
+    // checkEmptyResult()→getAvailableClasses() 對此分歧無實際影響（詳見
+    // CHANGELOG 稽核記錄），純屬架構一致性的預防性修復，避免未來新增
+    // 消費者時繼承此分歧、在未察覺的情況下產生不一致結果。regex 直接
+    // 複製 main.js 對應判斷式，確保兩處永遠同步。
+    if (/^健[〇零一二兩三四五六七八九ㄧ\d]/.test(stripped)) return 'non_nursing';
     // 二技系列（護21X / 護二一X / 日21X 等各種書寫）
     // BUG-FIX（0805）：戊己原本併入 2yr_gen 判斷式（[戊己A-Ea-e]），與
     // PROGRAM_THEORY_CLASSES.2yr_work、main.js CLASS_WORK_ORDER、ETL

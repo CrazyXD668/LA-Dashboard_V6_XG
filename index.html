@@ -2909,9 +2909,9 @@ body.light .loading-overlay { background: rgba(242,246,244,.92) !important; }
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">班級</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">學制</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">人數</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">期中均</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">期末均</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">學期均</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">期中平均</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">期末平均</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">學期平均</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text-dim);font-size:10px;border-bottom:1px solid var(--border)">及格率</th>
           </tr>
         </thead>
@@ -3686,29 +3686,29 @@ body.light .loading-overlay { background: rgba(242,246,244,.92) !important; }
 </div>
 
 <!-- 核心篩選邏輯模組（Bug E fix: moved from <head> to guarantee defer order） -->
-<script defer src="js/filter-engine.js?v=202608142009"></script>
+<script defer src="js/filter-engine.js?v=202608162214"></script>
 <!-- 主應用邏輯（依賴 filter-engine.js 與 CDN Chart.js） -->
-<script defer src="js/main.js?v=202608142009"></script>
+<script defer src="js/main.js?v=202608162214"></script>
 
 <!-- ══ D3.js v7.9.0（LSA 有向圖，本地化：js/vendor/d3.min.js）══ -->
 <script src="js/vendor/d3.min.js"></script>
 
 <!-- ══ 學習行為模組（依賴 main.js 全域變數）══ -->
-<script defer src="js/chart-registry.js?v=202608142009"></script>
-<script defer src="js/help-modal.js?v=202608142009"></script>
-<script defer src="js/behavior-loader.js?v=202608142009"></script>
-<script defer src="js/tab-behavior-radar.js?v=202608142009"></script>
-<script defer src="js/tab-behavior-correlation.js?v=202608142009"></script>
-<script defer src="js/tab-behavior-time.js?v=202608142009"></script>
-<script defer src="js/tab-behavior-lsa.js?v=202608142009"></script>
-<script defer src="js/tab-behavior-cross.js?v=202608142009"></script>
-<script defer src="js/tab-behavior-warning.js?v=202608142009"></script>
+<script defer src="js/chart-registry.js?v=202608162214"></script>
+<script defer src="js/help-modal.js?v=202608162214"></script>
+<script defer src="js/behavior-loader.js?v=202608162214"></script>
+<script defer src="js/tab-behavior-radar.js?v=202608162214"></script>
+<script defer src="js/tab-behavior-correlation.js?v=202608162214"></script>
+<script defer src="js/tab-behavior-time.js?v=202608162214"></script>
+<script defer src="js/tab-behavior-lsa.js?v=202608162214"></script>
+<script defer src="js/tab-behavior-cross.js?v=202608162214"></script>
+<script defer src="js/tab-behavior-warning.js?v=202608162214"></script>
 
 <!-- ══ 行為初始化 + 高風險報告（依賴 behavior 模組）══ -->
-<script defer src="js/behavior-init.js?v=202608142009"></script>
-<script defer src="js/at-risk-report.js?v=202608142009"></script>
+<script defer src="js/behavior-init.js?v=202608162214"></script>
+<script defer src="js/at-risk-report.js?v=202608162214"></script>
 <!-- ══ 列印面板（依賴所有 behavior 模組與 ChartRegistry）══ -->
-<script defer src="js/print-panel.js?v=202608142009"></script>
+<script defer src="js/print-panel.js?v=202608162214"></script>
 
 
 </body>

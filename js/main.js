@@ -1134,6 +1134,15 @@ function getClassSummary(sem, sheet, type = 'all', includeRetaker = true, progra
     if (sheet !== 'all' && c.sheet_name !== normalizeSheet(sheet)) return false;
     if (type !== 'all' && c.type !== type) return false;
     const prog = classInfo(c.sheet_name, c.semester).program;
+    // BUG-FIX（護理系統計污染修正，比照 renderD 0805第三次／0815 補漏）：
+    // 本函式是 Panel A「班級輪廓」跨班聚合（sheet==='all'）的唯一資料來源，
+    // 但先前只有 renderD()/renderCorrelation()/renderBoxPlot() 等4處個別
+    // 排除 non_nursing（健四二F等非護理系特殊任務班級），此處被漏掉，導致
+    // 「跨屆比較」選課人次（已排除）與「班級輪廓」名冊人數（未排除）在
+    // 「全部班級＋全部學制」時對不上（實測差 30 人＝健四二F正課歷年人次
+    // 總和）。僅在 sheet==='all' 才排除：使用者明確指定該班級（sheet 為
+    // 健四二F本身）時仍可正常查閱其個別資料，不受影響。
+    if (sheet === 'all' && program === 'all' && prog === 'non_nursing') return false;
     if (!includeRetaker) {
       if (prog === 'retake_class' || prog === 'retake_student') return false;
     }
@@ -1175,8 +1184,22 @@ function recordMatchesClass(r, sem, sheet, type = 'all') {
   // 正確採用「sem!=='all' 才檢查」的萬用字元慣例（見上方 1135 行），此處
   // 補齊相同邏輯，讓「期中→期末迴歸」與「常態分布疊加」圖表在全學期模式
   // 下能正確聚合特定班級跨屆的歷史紀錄，而非誤判為無資料。
+  //
+  // ROOT-CAUSE FIX(0815)：上面這輪修正把 sem 補上了萬用字元，卻沒有對
+  // sheet 做同樣的事——sheet==='all'（全部班級）時，
+  // normalizeSheet('all') 字面上會正規化成 'all' 本身（不比對任何已知
+  // 班級格式，落入 classInfo() 最後的 fallback），不會等於任何一筆真實
+  // 記錄的 canonical 班級名稱，判斷式恆為 false。實測：getAFilteredRecords()
+  // 在「全部班級」模式下無論如何都回傳空陣列，導致 renderRegression()（期中
+  // →期末迴歸散點）因 pts.length<3 而永遠整卡隱藏、renderNormalOverlay()
+  // 的理論常態曲線因 scores.length===0 而永遠 fallback 成假設 sd=10（並非
+  // 真實標準差，疊加在真實成績直方圖上的常態曲線因此失真）。先前
+  // UI-REGRESSION-HIDE FIX(0809) 的註解已描述到「全部班級這類寬篩選都會
+  // 落入資料不足」的症狀，但只處理了症狀（隱藏空卡片），未追出這個真正
+  // 根因，違反本專案 /systematic-debugging「先根因後修正」原則，此處補上
+  // sheet 的萬用字元比對，與 sem 對稱。
   return (sem === 'all' || r.semester === sem) &&
-    normalizeSheet(r.sheet_name) === normalizeSheet(sheet) &&
+    (sheet === 'all' || normalizeSheet(r.sheet_name) === normalizeSheet(sheet)) &&
     (type === 'all' || r.type === type);
 }
 
@@ -1214,6 +1237,28 @@ function updateCompareFilter(sem, sheet, type = 'all', includeRetaker = true, pr
 // ══════════════════════════════════════════════════════════
 let _aFilterSnapshot = null;
 
+// ROOT-CAUSE FIX(0815，/systematic-debugging 窮舉式稽核發現)：抽出共用
+// 函式，供 onAFilterChange()（FilterEngine.checkEmptyResult 判定查無資料，
+// 真正的 UI 篩選變更事件都走這條路徑）與 renderA()（getClassSummary 判定
+// cls 為 null，例如透過 resetAFilters 等非 change-event 路徑直接呼叫
+// renderA() 時）共用同一份「隱藏下游圖表」邏輯，避免兩處各自維護一份
+// 導致將來其中一處修正後、另一處被漏掉（正是本次要修正的臭蟲成因）。
+// 常態分布疊圖／期中期末長條圖／迴歸圖／與前次同班比較／跨屆趨勢 5 張
+// 圖表卡片，查無資料時原本會停留在切換篩選條件前的舊畫面，與「查無
+// 資料」警示互相矛盾。
+function _aPanelDownstreamCards() {
+  return [
+    document.getElementById('chartNormalOverlay')?.closest('.chart-card'),
+    document.getElementById('chartMidFinal')?.closest('.chart-card'),
+    document.getElementById('aRegressionCard'),
+    document.getElementById('aVarianceCard'),
+    document.getElementById('chartTrend')?.closest('.chart-card'),
+  ];
+}
+function _hideAPanelDownstreamCards() {
+  _aPanelDownstreamCards().forEach(card => card?.style.setProperty('display', 'none'));
+}
+
 function onAFilterChange(changedField, skipRender) {
   const sem       = document.getElementById('aFilterSem').value;
   const program   = document.getElementById('aFilterProgram').value;
@@ -1243,6 +1288,11 @@ function onAFilterChange(changedField, skipRender) {
     _showAEmptyHint(emptyCheck.reason);
     document.getElementById('aStats').innerHTML =
       `<div class="empty-state ladash-empty-error">⚠ ${escapeHtml(emptyCheck.reason)}</div>`;
+    // ROOT-CAUSE FIX(0815)：見 _hideAPanelDownstreamCards() 定義處註解。
+    // 這裡是實際 UI 篩選變更事件真正會走到的查無資料出口（renderA() 從未
+    // 被呼叫），若不在此處也隱藏下游圖表，renderA() 內同樣的防呆會形同
+    // 虛設。
+    _hideAPanelDownstreamCards();
     return;
   }
   _hideAEmptyHint();
@@ -1401,10 +1451,23 @@ function renderA() {
   // class_summary 仍用於：score_distribution（直方圖）、retaker_ratio、比較學期功能
   const cls     = getClassSummary(sem, sheet, type, inclRetakerA, program);
 
+  // ROOT-CAUSE FIX(0815，/systematic-debugging 窮舉式稽核發現)：cls 為 null
+  // （查無資料，例如透過 resetAFilters 等非 change-event 路徑呼叫、繞過
+  // onAFilterChange() 的 FilterEngine.checkEmptyResult 判斷時）時，一併
+  // 隱藏下游 5 張圖表卡片，避免它們停留在切換篩選條件前的舊畫面、與
+  // 「無此班次資料」警示互相矛盾（詳見 _hideAPanelDownstreamCards() 定義
+  // 處註解）。cls 恢復有值時還原顯示（aRegressionCard／aVarianceCard／
+  // chartTrend 卡已各自有資料量判斷式會自行決定顯示與否，故僅需在此
+  // 主動還原 chartNormalOverlay／chartMidFinal 這兩張沒有自我防呆機制
+  // 的卡片）。
   if (!cls) {
     document.getElementById('aStats').innerHTML = '<div class="empty-state">無此班次資料</div>';
+    _hideAPanelDownstreamCards();
     return;
   }
+  const aDownstreamCards = _aPanelDownstreamCards();
+  aDownstreamCards[0]?.style.setProperty('display', '');
+  aDownstreamCards[1]?.style.setProperty('display', '');
 
   // getClassSummary 已在 includeRetaker=false 時自動覆蓋 _nr 欄位
   // cls.count/avg_semester/pass_rate/score_distribution 均為正確版本，直接讀取
@@ -1413,7 +1476,7 @@ function renderA() {
   document.getElementById('aStats').innerHTML = `
     <div class="stat-card" data-ac="var(--accent)">
       <div class="val">${cls.count}</div>
-      <div class="lbl">${inclRetakerA ? '名冊人數 Enrolled' : '首修人數 First-Time'}</div>
+      <div class="lbl">${inclRetakerA ? '選課人次 Enrollments' : '首修人次 First-Time'}</div>
     </div>
     <div class="stat-card" data-ac="var(--accent2)">
       <div class="val">${cls.avg_semester ?? '–'}</div>
@@ -1900,11 +1963,21 @@ function renderCView() {
       const hint = [progLabel, semStr].filter(Boolean).join('、') || '目前篩選條件';
       _showCEmptyHint(`${hint} 無符合資料`);
       document.getElementById('cStats').innerHTML = '';
+      // ROOT-CAUSE FIX(0815，比照 Panel A renderA() 同日修正／
+      // /systematic-debugging 窮舉式稽核發現)：原本查無資料時只清空
+      // #cStats 就直接 return，renderCAnomalyAndDist(recs) 完全不會被呼叫，
+      // 「成績級距分布 Score Distribution」（cChartDist）因此原封不動停留
+      // 在上一次篩選條件算出的長條圖，與緊鄰上方「⚠ 查無資料」的警示文字
+      // 互相矛盾。「各學期異常事件密度」card 因其資料語意本就是「全體學生
+      // 異常標籤彙總」、不受目前篩選條件影響（見卡片副標），維持顯示不算
+      // 錯誤資訊，故僅需處理 cChartDist。
+      document.getElementById('cChartDist')?.closest('.chart-card')?.style.setProperty('display', 'none');
       updateFilterSummary('C');
       _syncCProfileVisibility();
       return;
     }
     _hideCEmptyHint();
+    document.getElementById('cChartDist')?.closest('.chart-card')?.style.setProperty('display', '');
     renderCAnomalyAndDist(recs);
     renderCStats(recs);
   } else {
@@ -1955,6 +2028,13 @@ function getCFilteredRecords() {
   Object.entries(DATA.students).forEach(([sid, stu]) => {
     stu.records.forEach(r => {
       if (semVal  !== 'all' && String(r.semester) !== String(semVal))  return;
+      // BUG-FIX（護理系統計污染修正，比照 getClassSummary 0815 補漏）：
+      // 學制篩選＝「全部」（progVal==='all'）時，classInfo().program 為
+      // 'non_nursing'（健四二F等）的記錄未被排除，會混入 Panel C「學生
+      // 表現」一般檢視的有記錄學生數／記錄筆數／平均分／及格率統計卡片
+      // 與成績分佈直方圖。使用者明確指定該學制時 progVal!=='all' 本就
+      // 不會命中 non_nursing，不受影響。
+      if (progVal === 'all' && classInfo(r.sheet_name||'', r.semester).program === 'non_nursing') return;
       if (progVal !== 'all' && classInfo(r.sheet_name||'', r.semester).program !== progVal) return;
       if (typeVal !== 'all' && r.type !== typeVal) return;
       if (!inclRetaker && r.is_retaker) return;
@@ -2014,7 +2094,18 @@ function renderCStats(baseRecs) {
   const pass = scores.filter(s=>s>=FAIL_THRESHOLD).length;
   const passRate = ((pass/scores.length)*100).toFixed(1);
   const uniqueStudents = new Set(recs.map(r => r.sid)).size;
-  const examLabel = { semester_score:'學期', midterm:'期中', final:'期末' }[cCurrentExam] || '學期';
+  // UI-TERM-UNIFY FIX(0816，/systematic-debugging 第五輪穿透式審查)：
+  // 原本英文固定寫死 'Avg'，未隨期中/期末/學期切換，與 Panel A／D 的
+  // 「Midterm Avg／Final Avg／Avg Score」命名方式不一致；中文原為
+  // 「XX平均分」，與 A／D 統一後的「XX平均」也不同調。統一比照 A／D
+  // 既有慣例（見 renderA()/renderD() 對應卡片），三處面板呈現同一組
+  // 中英文字詞。
+  const examLabelMap = {
+    semester_score: { zh: '學期平均', en: 'Avg Score' },
+    midterm:         { zh: '期中平均', en: 'Midterm Avg' },
+    final:           { zh: '期末平均', en: 'Final Avg' },
+  };
+  const examLabel = examLabelMap[cCurrentExam] || examLabelMap.semester_score;
   const passColor = parseFloat(passRate) >= PASS_COLOR_HIGH*100 ? 'var(--green)' : parseFloat(passRate) >= PASS_COLOR_MID*100 ? 'var(--accent3)' : 'var(--red)';
   document.getElementById('cStats').innerHTML = `
     <div class="stat-card" data-ac="var(--accent)">
@@ -2024,7 +2115,7 @@ function renderCStats(baseRecs) {
       <div class="val">${scores.length}</div><div class="lbl">記錄筆數 Records</div>
     </div>
     <div class="stat-card" data-ac="var(--accent2)">
-      <div class="val">${avg}</div><div class="lbl">${examLabel}平均分 Avg</div>
+      <div class="val">${avg}</div><div class="lbl">${examLabel.zh} ${examLabel.en}</div>
     </div>
     <div class="stat-card" data-ac="${passColor}">
       <div class="val">${passRate}%</div><div class="lbl">及格率 Pass Rate</div>
@@ -2799,6 +2890,12 @@ function getAFilteredRecords(sem, sheet, type, program) {
   const result = [];
   Object.values(DATA.students).forEach(s => s.records.forEach(r => {
     if (!inclRetaker && r.is_retaker) return;
+    // BUG-FIX（護理系統計污染修正，比照 getClassSummary 0815 補漏）：
+    // recordMatchesClass() 的 sheet 萬用字元同日修正後，「全部班級＋全部
+    // 學制」才會真正回傳跨班資料，此時需與 getClassSummary() 一致排除
+    // non_nursing（健四二F），避免迴歸散點／常態疊圖 sd 計算被非護理系
+    // 歷史紀錄污染。
+    if (sheet === 'all' && program === 'all' && classInfo(r.sheet_name || '', r.semester).program === 'non_nursing') return;
     if (program !== 'all' && classInfo(r.sheet_name || '', r.semester).program !== program) return;
     if (recordMatchesClass(r, sem, sheet, type)) result.push({ ...r, masked: s.name_masked });
   }));
@@ -2952,7 +3049,7 @@ function renderVarianceBar(sem, sheet, program = 'all') {
   setChartCardVisible(card, true);
 
   const metrics = ['avg_midterm','avg_final','avg_semester','pass_rate'];
-  const mLabels = ['期中均分','期末均分','學期均分','及格率×100'];
+  const mLabels = ['期中平均','期末平均','學期平均','及格率×100'];
   const deltas  = metrics.map((m,i)=>{
     const c = cur[m]??0, p = prev[m]??0;
     return i===3 ? +((c-p)*100).toFixed(1) : +(c-p).toFixed(1);
@@ -3241,7 +3338,7 @@ function renderHeatmap(filtered) {
   addSvgTooltip(svgEl, '[data-svgtip]', el => {
     const avg = el.dataset.avg;
     if (avg === '無資料') return `<b>${el.dataset.cls}</b>\n${semLabel(el.dataset.sem)}\n無資料`;
-    return `<b>${el.dataset.cls}</b>\n${semLabel(el.dataset.sem)}\n學期均分：<b>${avg}</b>\n及格率：${el.dataset.pass}\n人數：${el.dataset.n}`;
+    return `<b>${el.dataset.cls}</b>\n${semLabel(el.dataset.sem)}\n學期平均：<b>${avg}</b>\n及格率：${el.dataset.pass}\n人數：${el.dataset.n}`;
   });
 }
 
@@ -4201,9 +4298,33 @@ function renderD() {
   );
   const sems = getDSemList();
 
+  // ROOT-CAUSE FIX(0815，/systematic-debugging 窮舉式稽核發現)：抽出共用
+  // 清空函式，供下方「未選學期」與「篩選組合查無班級」兩處查無資料分支
+  // 共用——兩者原本都只更新 dStats 就直接 return，下方跨屆趨勢／學制比較
+  // 長條圖／及格率折線／各班明細表／熱力圖／箱形圖／相關性散點共7張圖表
+  // 全部維持切換篩選條件「前」的舊畫面，與 dStats 剛顯示的查無資料警示
+  // 直接矛盾。不動 dProgramBarWrap／dPassRateWrap 外層 wrap 的 display
+  // （由 setDSemMode() 依範圍/多選模式獨立控制），只清空其內部圖表內容。
+  const _clearDDownstream = () => {
+    document.getElementById('dChartTitle').textContent = '查無資料 No Data';
+    ['chartCohortTrend', 'chartProgramBar', 'chartPassRate', 'chartPassRateRange', 'chartCorrelation']
+      .forEach(id => { charts[id]?.destroy(); delete charts[id]; });
+    const heatmapEl  = document.getElementById('heatmapWrap');
+    const boxplotEl  = document.getElementById('boxplotWrap');
+    const detailBody = document.getElementById('dDetailBody');
+    const enrollSum  = document.getElementById('enrollmentSummary');
+    if (heatmapEl)  heatmapEl.innerHTML  = '';
+    if (boxplotEl)  boxplotEl.innerHTML  = '';
+    if (detailBody) detailBody.innerHTML = '';
+    if (enrollSum)  enrollSum.innerHTML  = '';
+    document.getElementById('dClassTable').style.setProperty('display', 'none');
+  };
+
   if (sems.length === 0) {
     document.getElementById('dStats').innerHTML =
       '<div class="empty-state ladash-empty-dim">請至少選擇一個學期</div>';
+    _clearDDownstream();
+    updateFilterSummary('D');
     return;
   }
 
@@ -4240,8 +4361,16 @@ function renderD() {
       : `${progLabel ? progLabel + '：' : ''}所選條件組合在目前學期範圍內查無班級資料。`;
     document.getElementById('dStats').innerHTML =
       `<div class="empty-state ladash-empty-error">⚠ ${escapeHtml(msg)}</div>`;
+    // ROOT-CAUSE FIX(0815)：見上方 _clearDDownstream() 定義處註解說明。
+    // filtered 恢復有值時，下方既有的 renderDTrendMerge/Class()、
+    // renderDProgramBar()、renderDPassRateBar/Line()、renderDTable()、
+    // renderHeatmap()、renderBoxPlot()、renderCorrelation() 每次都會用
+    // mkChart()／重建 innerHTML 的方式整張重繪，故不需額外還原邏輯。
+    _clearDDownstream();
+    updateFilterSummary('D');
     return;
   }
+
 
   const inclRetakerD = getIncludeRetaker('D');
   // filtered 的 class_summary row 已含 _nr 欄位
@@ -4260,7 +4389,7 @@ function renderD() {
     // BUG-FIX（護理系統計污染修正，0805第三次）：filterProg==='all' 時
     // filtered===allClasses，含 program==='non_nursing'（健四二F等歷史
     // 紀錄班級）。該班不屬護理系，此處為「護理系」加權統計卡片（總人數／
-    // 均分／及格率等），故排除；選特定護理系學制時 c.program 本就不會
+    // 平均分／及格率等），故排除；選特定護理系學制時 c.program 本就不會
     // 等於 'non_nursing'，此判斷不影響該情境。
     if (c.program === 'non_nursing') return;
     const cnt = Number(c[_cntField]) || 0;
@@ -4300,7 +4429,7 @@ function renderD() {
     </div>
     <div class="stat-card" data-ac="var(--accent2)">
       <div class="val">${avgScore ?? '–'}</div>
-      <div class="lbl">學期均分 Avg Score</div>
+      <div class="lbl">學期平均 Avg Score</div>
     </div>
     <div class="stat-card" data-ac="${avgPass != null && avgPass >= PASS_COLOR_HIGH ? 'var(--green)' : avgPass != null && avgPass >= PASS_COLOR_MID ? 'var(--accent3)' : 'var(--red)'}">
       <div class="val">${avgPass != null ? (avgPass * 100).toFixed(1) + '%' : '–'}</div>
@@ -4316,11 +4445,11 @@ function renderD() {
     </div>
     <div class="stat-card" data-ac="var(--accent3)">
       <div class="val">${avgMidterm ?? '–'}</div>
-      <div class="lbl">期中均分 Midterm Avg</div>
+      <div class="lbl">期中平均 Midterm Avg</div>
     </div>
     <div class="stat-card" data-ac="var(--accent)">
       <div class="val">${avgFinal ?? '–'}</div>
-      <div class="lbl">期末均分 Final Avg</div>
+      <div class="lbl">期末平均 Final Avg</div>
     </div>
     <div class="stat-card" data-ac="var(--accent4)">
       <div class="val">${sems.length}</div>
