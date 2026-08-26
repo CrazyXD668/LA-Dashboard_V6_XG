@@ -273,6 +273,21 @@ const BehaviorWarningTab = (() => {
     _warningData = result.data;
 
     if (!_warningData || !_warningData.summary) {
+      // 見規劃書2節／討論10：course_track為transition_merged_micro的學生
+      // 依PENDING_INDEPENDENT_MODEL_COHORTS暫緩進入BAS+XGBoost正式預測，
+      // 若該學期恰好全部學生皆屬此course_track（例如115(1)首學期，僅
+      // 5班合併課、無其他一般班在職/夜間學生），warning_${_semester}.json
+      // 可能查無資料或為空結構——這是預期行為，不是技術性載入失敗，改用
+      // 說明文字而非「結構異常」錯誤訊息。
+      if (window.SEM_PROGRAM_CHANGE_START && _semester >= window.SEM_PROGRAM_CHANGE_START) {
+        _renderEmpty(
+          `學期${_semester}尚無早期預警資料。若本學期學生主要為「基礎醫學臨床應用(一)」` +
+          `合併課微免部分，這是預期情況——該學制暫緩進入BAS+XGBoost正式預測輸出，` +
+          `待累積至少3學期資料後另建獨立模型（見規劃書討論10）。若本學期同時有一般` +
+          `班學生但仍未看到資料，才需要檢查 warning_${_semester}.json 是否正確產出。`
+        );
+        return;
+      }
       _renderEmpty(`warning_${_semester}.json 結構異常，缺少 summary。`);
       return;
     }

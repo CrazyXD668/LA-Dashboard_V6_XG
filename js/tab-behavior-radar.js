@@ -155,10 +155,24 @@ const BehaviorRadarTab = (() => {
       .map(({key,lbl})=>`<option value="${key}"${key===_passFilter?" selected":""}>${lbl}</option>`).join("");
     const filteredN=_filteredCount(_selectedCluster);
     // CSP-2 FIX: 改用 adoptedStyleSheets，移除動態 <style> 注入
+    // BUG-CSS-XTAB-1 FIX（0824穿透式審查，Playwright實測發現）：本檔與
+    // js/tab-behavior-time.js 各自獨立以 adoptedStyleSheets（文件層級全域
+    // 清單，非分頁範疇）注入同名class `.ladash-t-filter-panel`規則，但兩者
+    // flex-wrap/overflow-x/white-space/margin-bottom屬性值不一致（time.js
+    // 為新增課程篩選後的nowrap+overflow-x:auto版本）。因兩者各自用不同
+    // sentinel id（brt-adopted-style／__ladash-select-filter-style）做防重
+    // 複注入判斷，會各自成功注入、同時存在於document.adoptedStyleSheets，
+    // CSS層疊由陣列後補者勝出——實測：預設載入雷達圖分頁（正確wrap排版）
+    // 後，只要使用者切換過一次時間分析分頁，time.js的規則後注入陣列，
+    // 雷達圖分頁的篩選列即被永久覆蓋為nowrap+overflow-x:auto（即使切回
+    // 雷達圖分頁、DOM未重新渲染也不會恢復），與時間分析分頁互相汙染。
+    // 修正：雷達圖分頁改用專屬class`.ladash-r-filter-panel`（僅此一個
+    // 選擇器改名，其餘4個共用class為完全相同定義，予以保留不動），
+    // 消除選擇器碰撞，兩分頁各自的篩選列版面設計互不影響。
     const styleId = "brt-adopted-style";
     if (!document.getElementById(styleId)) {
       const CSS_TEXT = `
-        .ladash-t-filter-panel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 12px;border:1px solid rgba(110,130,165,.22);border-radius:10px;background:var(--card-bg2,#1c2030)}
+        .ladash-r-filter-panel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 12px;border:1px solid rgba(110,130,165,.22);border-radius:10px;background:var(--card-bg2,#1c2030)}
         .ladash-t-filter-lbl{font-size:.8rem;font-weight:700;color:var(--text-mid,#4f5f78);white-space:nowrap}
         .ladash-t-filter-grp{display:flex;align-items:center;gap:4px;font-size:.78rem;color:var(--text-dim,#888);flex-shrink:0}
         .ladash-t-filter-sel{font-size:.78rem;padding:2px 4px;border-radius:7px;border:1px solid var(--border,#2a2f45);background:var(--surface2,#1c2030);color:var(--text-mid,#9aa0b8);cursor:pointer}
@@ -232,7 +246,7 @@ const BehaviorRadarTab = (() => {
       }
     }
     el.innerHTML=`<div class="ladash-brt-wrap">
-      <div class="ladash-t-filter-panel">
+      <div class="ladash-r-filter-panel">
         <span class="ladash-t-filter-lbl">篩選條件</span>
         <label class="ladash-t-filter-grp">學期
           <select id="radarSemFilter" class="ladash-t-filter-sel">${semOptions}</select>

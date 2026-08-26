@@ -967,6 +967,9 @@ function init() {
   window.SEM_COVID_END        = (m.covid_sem_range       ?? ['1082','1112'])[1];
   window.SEM_CURRICULUM_START = (m.curriculum_sem_range  ?? ['1111', null])[0];
   window.SEM_CURRICULUM_END   = (m.curriculum_sem_range  ?? ['1111', null])[1] ?? lastSem;
+  // 二技在職改制（見規劃書討論6）：比照 COVID／108課綱同一寫法
+  window.SEM_PROGRAM_CHANGE_START = (m.program_change_sem_range ?? ['1151', null])[0];
+  window.SEM_PROGRAM_CHANGE_END   = (m.program_change_sem_range ?? ['1151', null])[1] ?? lastSem;
   // ── End of global constants ─────────────────────────────────────
   document.getElementById('metaInfo').innerHTML =
     `${escapeHtml(String(m.semesters.length))} 學期 · 更新 ${escapeHtml((m.generated_at ?? '').slice(0,10))}`;
@@ -4247,6 +4250,32 @@ function getEnvAnnotations(sems) {
       label: {
         display: true,
         content: '108課綱',
+        position: { x: 'center', y: 'end' },       // 移至底部
+        yAdjust: -8,                                 // 向上微移，避免被 X 軸截切
+        color: labelColor,                           // 實際 hex，支援深淺色
+        font: { size: 9 },
+        backgroundColor: 'transparent',
+        padding: 2,
+      }
+    };
+  }
+
+  // 二技在職改制（見規劃書討論6）：比照 covidBox／curriculumBox 同一寫法，
+  // 選第三色（綠）與紅／藍區隔，避免視覺混淆。7個既有呼叫端
+  // （renderRetakerTrend／renderRetakerPassRateTrend／renderDPassRateLine
+  // 等）共用本函式，本次新增自動一併套用，不需逐一修改。
+  const programChangeRange = boxRange(SEM_PROGRAM_CHANGE_START, SEM_PROGRAM_CHANGE_END);
+  if (programChangeRange) {
+    annotations.programChangeBox = {
+      type: 'box',
+      drawTime: 'beforeDatasetsDraw',
+      xMin: programChangeRange.xMin,
+      xMax: programChangeRange.xMax,
+      backgroundColor: 'rgba(94,201,120,0.10)',    // 加深：深色模式可見
+      borderWidth: 0,
+      label: {
+        display: true,
+        content: '二技在職改制',
         position: { x: 'center', y: 'end' },       // 移至底部
         yAdjust: -8,                                 // 向上微移，避免被 X 軸截切
         color: labelColor,                           // 實際 hex，支援深淺色

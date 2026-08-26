@@ -31,7 +31,7 @@ const BehaviorLoader = (() => {
   // Must match sw.js BUILD_VERSION and index.html's JS ?v= parameter.
   // A new value makes every JSON request a new URL, so an older Service
   // Worker or browser HTTP cache cannot return a prior ETL result.
-  const DATA_VERSION = "202608162214";
+  const DATA_VERSION = "202608260923";
 
   // ── 同時請求去重（避免多個 Tab 並發初始化時重複 fetch）─────
   // 例：sub-warning 與 Tab R 的 lazyInit 可能在同一時刻
@@ -188,6 +188,14 @@ const BehaviorLoader = (() => {
     atRisk:      () => fetchJSON("atRisk",      DATA_ROOT + "at_risk_profile.json"),
     crossAnalysis: () => fetchJSON("crossAnalysis", DATA_ROOT + "cross_analysis.json"),
     warning:     (semester) => fetchJSON(`warning_${semester}`, DATA_ROOT + `warning_${semester}.json`),
+    // micro_immuno_reading_shortfall_{semester}.json（見規劃書1.5節）：
+    // 基礎醫學臨床應用(一)合併課微免部分8小時教材閱讀門檻清單，比照
+    // warning 同一參數化寫法。沒有.gz版本（單一課程資料量遠小於
+    // warning_${semester}.json，不需要壓縮）。
+    microImmunoReadingShortfall: (semester) => fetchJSON(
+      `microImmunoReadingShortfall_${semester}`,
+      DATA_ROOT + `micro_immuno_reading_shortfall_${semester}.json`,
+    ),
   };
 
   /**

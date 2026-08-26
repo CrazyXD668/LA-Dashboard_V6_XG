@@ -185,6 +185,75 @@ const AtRiskReportManager = (() => {
   }
 
   // ── 學期切換 ────────────────────────────────────────────
+  // ── 第6類：8小時教材閱讀門檻清單（見規劃書1.5節）────────
+  // micro_immuno_reading_shortfall_{semester}.json 只存在於有「基礎醫學
+  // 臨床應用(一)」合併課的學期（115(1)起），故不比照 _warningData 走
+  // BehaviorLoader.loadWarningForCurrentTarget()（該函式找「目前尚無
+  // 期末成績的最新學期」，語意不同）；改為切換學期時依 _currentSem
+  // 直接嘗試載入，查無檔案（多數學期皆屬此情況）時靜默略過、不視為錯誤。
+  let _readingShortfallData = null;
+  let _readingShortfallSemester = null;
+
+  function _buildReadingShortfallFlag() {
+    if (!_readingShortfallData || _readingShortfallSemester !== _currentSem) return null;
+    const d = _readingShortfallData;
+    const students = Array.isArray(d.students) ? d.students : [];
+    const shortfallCount = d.shortfall_count ?? students.filter(s => !s.met_8hr_threshold).length;
+    if (shortfallCount === 0) return null;
+
+    // 見規劃書最終規格第3節：NO AUTOMATED GRADE MUTATION——系統不計算、
+    // 不建議調整後成績，raw_grade原封不動，只做met_8hr_threshold判定+
+    // UI警示，×0.56由授課教師人工於送出成績前自行套用。
+    const body =
+      `🔎 「基礎醫學臨床應用(一)」合併課微免部分規定：教材閱讀累計須達 ` +
+      `${d.threshold_hours ?? 8} 小時（依教材標題類別白名單加總，不分週次）。` +
+      `此為決策支援警示，系統不會自動修改成績——未達標者請於送出成績前` +
+      `手動將 Test III 原始成績 ×${d.manual_adjustment_multiplier_hint ?? 0.56}。\n\n` +
+      `📊 本學期 ${d.total_students ?? students.length} 名學生中，有 ${shortfallCount} 人` +
+      `累計閱讀時數未達門檻。\n\n` +
+      `💡 完整名單（學號、累計時數、Test III原始成績）已包含在 ` +
+      `micro_immuno_reading_shortfall_${d.semester ?? _currentSem}.json 中，` +
+      `可另行匯出CSV核對後手動計算調整分數謄寫進成績檔。`;
+
+    return {
+      icon: '📖',
+      title: `8小時教材閱讀門檻：${shortfallCount} 名學生未達標`,
+      body, color: '#e67e22', multiline: true,
+    };
+  }
+
+  // 見規劃書最終規格第4節：單一學生層級的警示徽章文字，供學生列表/
+  // 高風險名單逐筆顯示於該生列旁（met_8hr_threshold===false時顯示）。
+  const READING_SHORTFALL_BADGE_TEXT = '⚠️ 未滿 8 小時 (送出成績前請手動 × 0.56)';
+
+  function readingShortfallBadgeFor(studentId) {
+    if (!_readingShortfallData || _readingShortfallSemester !== _currentSem) return null;
+    const students = Array.isArray(_readingShortfallData.students) ? _readingShortfallData.students : [];
+    const rec = students.find(s => s.student_id === studentId);
+    if (!rec || rec.met_8hr_threshold) return null;
+    return READING_SHORTFALL_BADGE_TEXT;
+  }
+
+  async function _loadReadingShortfallForSemester(sem) {
+    if (!sem || sem === '__all__') return;
+    if (typeof BehaviorLoader === 'undefined' || !BehaviorLoader.load?.microImmunoReadingShortfall) return;
+    try {
+      const data = await BehaviorLoader.load.microImmunoReadingShortfall(sem);
+      // 防race condition：非同步載入期間使用者可能已切換到其他學期，
+      // 此時不套用已過期的回應（比照既有 switchSemester 先確認再更新畫面的原則）。
+      if (_currentSem !== sem) return;
+      _readingShortfallData = data;
+      _readingShortfallSemester = sem;
+      renderRedFlags(
+        _currentSemData?.behavioral_markers, _currentSemData?.temporal_decay,
+        _currentSemData?.reading_integrity,
+      );
+    } catch (e) {
+      // 查無檔案是多數學期的正常情況（僅115(1)起有合併課），靜默略過，
+      // 不印警告避免每次切換學期都在console洗版。
+    }
+  }
+
   function switchSemester(sem) {
     // ROOT-CAUSE FIX(0815，/systematic-debugging 第三輪窮舉式稽核發現)：
     // 原本 _highlightSemBtn(sem) 在資料存在性檢查「之前」就執行——若 sem
@@ -223,6 +292,9 @@ const AtRiskReportManager = (() => {
     } catch (e) {
       console.error('[AtRiskReportManager] 學期切換渲染失敗：', sem, e);
     }
+
+    // 第6類：8小時教材閱讀門檻（見上方定義處說明，非同步、查無資料時靜默略過）
+    _loadReadingShortfallForSemester(sem);
 
     const clearBtn = document.getElementById('rRadarClearBtn');
     if (clearBtn) clearBtn.style.setProperty('display', 'none');
@@ -627,6 +699,9 @@ const AtRiskReportManager = (() => {
 
     const warningFlag = _buildWarningFlag();
     if (warningFlag) flags.push(warningFlag);
+
+    const readingShortfallFlag = _buildReadingShortfallFlag();
+    if (readingShortfallFlag) flags.push(readingShortfallFlag);
 
     el.innerHTML = '';
     if (!flags.length) {
@@ -1163,5 +1238,8 @@ const AtRiskReportManager = (() => {
       const mc = _currentSemData?.metrics_comparison ?? _data?.metrics_comparison;
       if (mc) renderRadarChart(mc);
     },
+    // 見規劃書最終規格第4節：供其他模組（例如未來的逐生列表元件）查詢
+    // 特定學生是否需顯示8小時未達標警示徽章，不需重新載入資料。
+    readingShortfallBadgeFor,
   };
 })();

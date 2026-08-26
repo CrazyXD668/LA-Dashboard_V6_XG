@@ -81,6 +81,11 @@ const BehaviorTimeTab = (() => {
   let _filterSemester = "all";
   let _filterCluster  = "all";
   let _filterPass     = "all";
+  // 見規劃書討論1（方案B）：course_track篩選維度。"all"=全部（不畫考試週
+  // 紅線，混合資料時單一標記本身就會誤導）／"traditional"=一般班級
+  // （W9/W18或16+2週特例）／"transition_merged_micro"=合併課微免部分
+  // （僅W18有Test III，見_examWeeksForCurrentFilter()）。
+  let _filterCourseTrack = "all";
   let _allSemesters   = [];
 
   // ── 工具函式 ─────────────────────────────────────────────────
@@ -197,6 +202,12 @@ const BehaviorTimeTab = (() => {
       `<option value="pass"${_filterPass === "pass" ? " selected" : ""}>及格</option>`,
       `<option value="fail"${_filterPass === "fail" ? " selected" : ""}>不及格</option>`,
     ].join("");
+    // 見規劃書討論1（方案B）：course_track篩選選項。
+    const courseTrackOptions = [
+      `<option value="all"${_filterCourseTrack === "all" ? " selected" : ""}>全部</option>`,
+      `<option value="traditional"${_filterCourseTrack === "traditional" ? " selected" : ""}>一般班級</option>`,
+      `<option value="transition_merged_micro"${_filterCourseTrack === "transition_merged_micro" ? " selected" : ""}>合併課微免</option>`,
+    ].join("");
     anchor.innerHTML = `
       <div class="ladash-t-filter-panel">
         <span class="ladash-t-filter-lbl">篩選條件</span>
@@ -209,6 +220,9 @@ const BehaviorTimeTab = (() => {
         <label class="ladash-t-filter-grp">及格
           <select id="timePassFilter" class="ladash-t-filter-sel" data-mw="80px">${passOptions}</select>
         </label>
+        <label class="ladash-t-filter-grp">課程
+          <select id="timeCourseTrackFilter" class="ladash-t-filter-sel" data-mw="100px">${courseTrackOptions}</select>
+        </label>
         <span id="timeFilterCount" class="ladash-t-dim-xs"></span>
       </div>`;
     _bindFilterSelects(anchor);
@@ -216,7 +230,7 @@ const BehaviorTimeTab = (() => {
 
   function _bindFilterSelects(root) {
     [
-      "timeSemFilter", "timeClusterFilter", "timePassFilter",
+      "timeSemFilter", "timeClusterFilter", "timePassFilter", "timeCourseTrackFilter",
       "preExamSemFilter", "preExamClusterFilter", "preExamPassFilter",
       "tsDonutSemFilter", "tsDonutClusterFilter", "tsDonutPassFilter",
     ].forEach(id => {
@@ -232,18 +246,23 @@ const BehaviorTimeTab = (() => {
       const el = document.getElementById(sourceId);
       if (el) {
         const sid = sourceId.toLowerCase();
-        if      (sid.includes("sem"))     _filterSemester = el.value;
+        if      (sid.includes("coursetrack")) _filterCourseTrack = el.value;
+        else if (sid.includes("sem"))     _filterSemester = el.value;
         else if (sid.includes("cluster")) _filterCluster  = el.value;
         else if (sid.includes("pass"))    _filterPass     = el.value;
       }
     } else {
       // 無 sourceId（直接呼叫）：從頂部列讀取
-      _filterSemester = document.getElementById("timeSemFilter")?.value     || "all";
-      _filterCluster  = document.getElementById("timeClusterFilter")?.value || "all";
-      _filterPass     = document.getElementById("timePassFilter")?.value    || "all";
+      _filterSemester     = document.getElementById("timeSemFilter")?.value         || "all";
+      _filterCluster      = document.getElementById("timeClusterFilter")?.value     || "all";
+      _filterPass          = document.getElementById("timePassFilter")?.value        || "all";
+      _filterCourseTrack  = document.getElementById("timeCourseTrackFilter")?.value || "all";
     }
 
-    // 同步所有同維度 select（頂部列 + 兩組圖表內）
+    // 同步所有同維度 select（頂部列 + 兩組圖表內）。course_track目前只在
+    // 頂部列有UI（見規劃書討論1：範圍刻意只加這一個select，不複製進圖表內
+    // 兩組面板），故無需同步陣列，僅需確保自己不被覆寫（不在下方三個
+    // xxxIds陣列中列出即可，天然不受影響）。
     const semIds     = ["timeSemFilter",     "preExamSemFilter",     "tsDonutSemFilter"];
     const clusterIds = ["timeClusterFilter", "preExamClusterFilter", "tsDonutClusterFilter"];
     const passIds    = ["timePassFilter",    "preExamPassFilter",    "tsDonutPassFilter"];
@@ -270,6 +289,7 @@ const BehaviorTimeTab = (() => {
         semester:            s.semester  || "",
         cluster:             s.cluster   || "",
         edu_type:            s.edu_type  || "",
+        course_track:        s.course_track ?? null,
         final_score:         s.final_score    ?? null,
         semester_score:      s.semester_score ?? null,
         totalMinutes:        _num(s.total_learning_minutes ?? (s.features || {}).total_learning_minutes),
@@ -305,6 +325,14 @@ const BehaviorTimeTab = (() => {
       if (_filterSemester !== "all" &&
           _normalizeSem(row.semester) !== _normalizeSem(_filterSemester)) return false;
       if (_filterCluster !== "all" && row.cluster !== _filterCluster) return false;
+      // 見規劃書討論1（方案B）：course_track篩選。"traditional"排除合併課微免
+      // 部分學生（course_track==="transition_merged_micro"）；反向篩選則只留
+      // 該部分學生。"all"不過濾（維持既有混合行為，考試週紅線另行處理，見
+      // _examWeeksForCurrentFilter()）。
+      if (_filterCourseTrack === "transition_merged_micro" &&
+          row.course_track !== "transition_merged_micro") return false;
+      if (_filterCourseTrack === "traditional" &&
+          row.course_track === "transition_merged_micro") return false;
       if (_filterPass !== "all") {
         const hasScore = row.final_score != null || row.semester_score != null;
         if (!hasScore) return false;
@@ -370,11 +398,51 @@ const BehaviorTimeTab = (() => {
   // 「期中考第9週、期末考第18週」。共用於 renderWeeklyQuiz() 的週次
   // fallback 判斷，以及下面 examLinePlugin 的紅色參考線繪製位置。
   const SIXTEEN_PLUS_TWO_SEMS = new Set(["1121", "1122", "1131"]);
+
+  // 見規劃書討論1（方案B）：course_track篩選維度加入後的考試週判斷。
+  // - "transition_merged_micro"：合併課微免部分僅week18有Test III，無期中考
+  //   （教學計畫課表已確認，見規劃書0.1節）
+  // - "traditional"：一般班級，維持既有9/18或16+2週特例8/16判斷
+  // - "all"（預設）：v1刻意不畫任何考試週紅線——同一學期內合併課學生與
+  //   傳統結構學生（含護2重修等既有重修班，見規劃書討論9、11）共存，
+  //   混合資料時單一標記本身就會誤導，寧可不畫、引導使用者切換到明確的
+  //   課程篩選，也不要疊加兩組不同語意的紅線在同一張圖上
   function _examWeeksForCurrentFilter() {
+    if (_filterCourseTrack === "transition_merged_micro") {
+      return { weeks: [18], labels: { 18: "Test III" } };
+    }
+    if (_filterCourseTrack === "traditional") {
+      if (SIXTEEN_PLUS_TWO_SEMS.has(_filterSemester)) {
+        return { weeks: [8, 16], labels: { 8: "期中考", 16: "期末考" } };
+      }
+      return { weeks: [9, 18], labels: { 9: "期中考", 18: "期末考" } };
+    }
+    // _filterCourseTrack === "all"
     if (SIXTEEN_PLUS_TWO_SEMS.has(_filterSemester)) {
       return { weeks: [8, 16], labels: { 8: "期中考", 16: "期末考" } };
     }
-    return { weeks: [9, 18], labels: { 9: "期中考", 18: "期末考" } };
+    if (_filterSemester !== "all") {
+      // 已選定明確學期、非16+2週特例、course_track維持"all"：該學期本身
+      // 若同時有合併課與傳統班級資料，才是真正的混合情境；若該學期根本
+      // 沒有合併課資料，維持既有9/18標記不受影響（多數學期屬此情況，
+      // 不應該因為新增了course_track維度就改變其原有行為）。
+      const hasTransitionMerged = (_rowCache?.filtered || []).some(
+        r => r.semester === _filterSemester && r.course_track === "transition_merged_micro"
+      );
+      const hasTraditional = (_rowCache?.filtered || []).some(
+        r => r.semester === _filterSemester && r.course_track !== "transition_merged_micro"
+      );
+      if (hasTransitionMerged && hasTraditional) {
+        return { weeks: [], labels: {} };  // 混合，不畫紅線，見上方函式說明
+      }
+      if (hasTransitionMerged && !hasTraditional) {
+        return { weeks: [18], labels: { 18: "Test III" } };
+      }
+      return { weeks: [9, 18], labels: { 9: "期中考", 18: "期末考" } };
+    }
+    // 學期也是"all"：全歷史資料範圍必然混合（115(1)起有合併課、之前沒有），
+    // 不畫紅線
+    return { weeks: [], labels: {} };
   }
 
   const examLinePlugin = {
