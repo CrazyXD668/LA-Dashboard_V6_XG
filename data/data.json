@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-08-26T09:16:41",
+    "generated_at": "2026-09-15T08:51:57",
     "semesters": [
       "1001",
       "1002",
@@ -249,6 +249,9 @@
     ],
     "pass_color_high": 0.9,
     "pass_color_mid": 0.7,
+    "exam_end_dates": {
+      "1122": "2024-06-05"
+    },
     "course_id": "11411112000550106041358-CM",
     "course_name": "微生物及免疫學(合併班)"
   },
