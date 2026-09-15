@@ -98,12 +98,17 @@ const TOOLTIP_STYLE = {
 };
 function getTooltipStyle() {
   const light = document.body.classList.contains('light');
+  const surface = cssColor('--surface2', light ? '#ffffff' : '#192d3d');
+  const border  = cssColor('--border2', light ? '#afc6bc' : '#456779');
+  const text    = chartTextColor();
+  const textDim = chartTextDimColor();
   return {
     ...TOOLTIP_STYLE,
-    backgroundColor: light ? 'rgba(255,255,255,0.97)' : 'rgba(28,32,48,0.97)',
-    borderColor:     light ? '#b0b6d0' : '#353c58',
-    titleColor:      light ? '#1a1d2e' : '#dde3f5',
-    bodyColor:       light ? '#4a5070' : '#9aa0b8',
+    backgroundColor: surface,
+    borderColor:     border,
+    titleColor:      text,
+    bodyColor:       textDim,
+    footerColor:     textDim,
   };
 }
 
@@ -194,14 +199,13 @@ function smoothScaleEdges(config) {
 
 function refreshChartDefaults() {
   const ts = getTooltipStyle();
-  const light = document.body.classList.contains('light');
   CHART_DEFAULTS.color = chartTextColor();
   CHART_DEFAULTS.plugins.tooltip = ts;
   CHART_DEFAULTS.plugins.legend.labels.color = chartTextDimColor();
-  CHART_DEFAULTS.scales.x.ticks.color = '#6b748f';
-  CHART_DEFAULTS.scales.x.grid.color  = light ? '#e0e4f0' : '#1c2030';
-  CHART_DEFAULTS.scales.y.ticks.color = '#6b748f';
-  CHART_DEFAULTS.scales.y.grid.color  = light ? '#e8eaf2' : '#242840';
+  CHART_DEFAULTS.scales.x.ticks.color = chartTextDimColor();
+  CHART_DEFAULTS.scales.x.grid.color  = cssColor('--border', '#2b4658');
+  CHART_DEFAULTS.scales.y.ticks.color = chartTextDimColor();
+  CHART_DEFAULTS.scales.y.grid.color  = cssColor('--surface3', '#213c4c');
 }
 
 const charts = {};
@@ -2429,6 +2433,66 @@ function renderQuadrant() {
 }
 
 // ══════════════════════════════════════════════════════════
+// 學號揭示共用工具（36/37號規格書：8小時徽章逐生清單＋提前預警花名冊共用）
+// ══════════════════════════════════════════════════════════
+// 資料層本身不新增揭示檔，靠 data.json 既有「以原始學號為key」的
+// DATA.students 反查（見 etl.py::build_student_map()）；本節只負責
+// 「anon_id → 原始學號」的反查快取，以及揭示時間窗判斷。
+
+// anon_id → 原始學號 反查快取。DATA.students 是以原始學號為 key、
+// 每筆記錄內含該學生唯一的 anon_id（同一學生跨學期 anon_id 不變，見
+// 02_anonymize.py：純粹由 salt+學號雜湊而來，無時間成分），故為單純
+// 1:1 反查，首次呼叫時惰性建置一次並快取，語法與快取策略比照上方
+// _getFlatStudents()。
+let _rawIdByAnonIdCache = null;
+function resolveRawStudentId(anonId) {
+  if (!anonId) return null;
+  if (!_rawIdByAnonIdCache) {
+    _rawIdByAnonIdCache = new Map();
+    Object.entries(DATA.students || {}).forEach(([rawId, s]) => {
+      if (s && s.anon_id) _rawIdByAnonIdCache.set(s.anon_id, rawId);
+    });
+  }
+  return _rawIdByAnonIdCache.get(anonId) || null;
+}
+
+// 8小時徽章逐生清單專用：判斷「目前是否仍在完整學號揭示窗口內」。
+// 36號規格書決議（零、決策摘要）：
+//   ・期末考後14天內顯示完整學號，14天後顯示 masked_id
+//   ・自然日，期末考結束日隔天起算（即 examEnd+1 ~ examEnd+14 共14天為
+//     揭示窗口，examEnd+14 當天23:59:59 為最後時刻，examEnd+15 起遮蔽）
+//   ・無 exam_end_date 時（data.json meta.exam_end_dates 查無該學期），
+//     預設顯示完整學號
+// 注意：此規則只適用8小時徽章清單。提前預警花名冊不套用14天窗口——
+// 只要是目前目標學期就永遠顯示完整學號，該邏輯直接寫在
+// tab-behavior-warning.js，不經過本函式。
+function isWithinIdRevealWindow(semester) {
+  const examEndDates = (typeof DATA !== 'undefined' && DATA.meta && DATA.meta.exam_end_dates) || {};
+  const endDateStr = examEndDates[semester];
+  if (!endDateStr) return true;  // 無 exam_end_date：預設顯示完整學號
+
+  const examEnd = new Date(`${endDateStr}T00:00:00`);
+  if (isNaN(examEnd.getTime())) return true;  // 格式異常時同樣預設完整學號，不中斷渲染
+
+  const deadline = new Date(examEnd.getTime());
+  deadline.setDate(deadline.getDate() + 14);
+  deadline.setHours(23, 59, 59, 999);
+
+  return Date.now() <= deadline.getTime();
+}
+
+// CSV 欄位逸出：比照 tab-behavior-warning.js::_exportCsv() 既有模式，
+// 供8小時徽章逐生清單CSV下載共用，避免兩處各自維護導致跑掉
+// （這個專案過去已因同類重複邏輯吃過虧，見36號規格書第八節）。
+function csvCellEscape(value) {
+  const s = (value === null || value === undefined) ? '' : String(value);
+  if (/[",\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+// ══════════════════════════════════════════════════════════
 // PANEL C — 學生搜尋
 // ══════════════════════════════════════════════════════════
 // （共用防抖動工具 debounce()／SEARCH_DEBOUNCE_MS 已搬至檔案最上方 UTILITIES 區塊，
@@ -2580,6 +2644,7 @@ function renderProfile(sid) {
         ${r.exceptions.length ? `<div class="tl-tags">${r.exceptions.map(e =>
           `<span class="tag tag-${escapeHtml(e.color)}">${escapeHtml(e.tag)}</span>`).join('')}</div>` : ''}
         ${r.type === 'theory' ? `
+          <span class="tl-shortfall-badge-slot" data-anon="${escapeHtml(data.anon_id)}" data-sem="${escapeHtml(r.semester)}"></span>
           <button type="button" class="tl-behavior-btn"
                   data-action="toggleBehaviorClassPanel"
                   data-anon="${escapeHtml(data.anon_id)}"
@@ -2606,6 +2671,28 @@ function renderProfile(sid) {
 
   wrap.innerHTML = html;
   _applyAccentColors();
+
+  // [AUDIT-FIX 穿透式審查 0907 — Q2] 8小時教材閱讀門檻警示徽章：資料與
+  // 徽章文字函式（AtRiskReportManager.getReadingShortfallBadgeForAnySemester）
+  // 早已備妥，但先前從未接到這裡——搜尋單一學生時完全看不到警示。採
+  // 非同步、不阻塞profile初次渲染的方式補上：查無資料（絕大多數學期
+  // 皆屬此情況，只有115(1)起有合併課）時該欄位維持空白，不影響其他
+  // 內容顯示。AtRiskReportManager尚未載入/初始化時直接跳過，不拋錯。
+  if (typeof AtRiskReportManager !== 'undefined' && AtRiskReportManager.getReadingShortfallBadgeForAnySemester) {
+    wrap.querySelectorAll('.tl-shortfall-badge-slot').forEach((slot) => {
+      const anon = slot.dataset.anon;
+      const sem  = slot.dataset.sem;
+      if (!anon || !sem) return;
+      AtRiskReportManager.getReadingShortfallBadgeForAnySemester(anon, sem)
+        .then((badgeText) => {
+          if (badgeText && slot.isConnected) {
+            slot.textContent = badgeText;
+            slot.classList.add('tl-shortfall-badge-slot--active');
+          }
+        })
+        .catch(() => {});  // 查無資料/fetch失敗一律靜默，不影響已渲染的其他內容
+    });
+  }
 
   const theory    = sorted.filter(r => r.type === 'theory');
   const practicum = sorted.filter(r => r.type === 'practicum');
@@ -2738,9 +2825,19 @@ async function buildBehaviorClassificationHtml(anonId, sem) {
       const warningResult = await BehaviorLoader.loadWarningForCurrentTarget();
       if (warningResult && warningResult.semester === sem) {
         const list = warningResult.data?.students || [];
-        // masked_id 於 behavior.json 與 warning_*.json 為同一組值（§2.5），
-        // 用剛查到的 behRec.masked_id 比對，等效於規格書「DATA.students[sid].name_masked」。
-        matched = list.find(s => s.masked_id === behRec.masked_id) || null;
+        // [AUDIT-FIX 穿透式審查 0908第三輪] 原本用masked_id比對（上方
+        // 舊註解「masked_id於behavior.json與warning_*.json為同一組值」
+        // 是36/37號規格書之前的事實——當時warning_*.json的學生記錄根本
+        // 沒有anon_id欄位，只能退而用masked_id比對，且開發者當時已經
+        // 用§2.5/陷阱提醒的形式留下警語）。36號規格書為warning_*.json
+        // 補上anon_id後，這裡遺留的masked_id比對就成了本專案這輪
+        // 已經修過兩次的同一類「遮蔽學號不保證唯一」碰撞風險——不同
+        // 學生若masked_id剛好相同（前3碼+後2碼相同），會被誤配到彼此
+        // 的r_cluster/s_cluster/learning_approach。現在anon_id已存在，
+        // 改用anon_id比對；比對不到時維持原有INSUFFICIENT_DATA優雅
+        // 降級（例如載入到anon_id尚未補上的舊快取檔案時），不會顯示
+        // 錯誤資料。
+        matched = list.find(s => s.anon_id === behRec.anon_id) || null;
       }
     }
     if (matched) {

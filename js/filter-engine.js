@@ -1,15 +1,22 @@
 /**
- * filter-engine.js  v1.1.0
+ * filter-engine.js  v1.2.0
  * 學習分析儀表板：篩選器核心邏輯模組
  *
  * 職責：純邏輯層，不操作 DOM、不依賴 Chart.js、不依賴全域 DATA
- *   - sheet_name → program 對照
- *   - 規則一：學期 → 學制反灰
- *   - 規則二：學制 → 課程類型鎖定
- *   - 規則三：學期 + 學制 + 課程類型 → 班級清單
- *   - 規則四：重置鏈
- *   - 規則五：重修生開關
- *   - 資料計數輔助（getClassCount）
+ *   目前實際用途（見main.js三處呼叫點）：
+ *   - sheet_name → program 對照（getProgram，供buildIndex/getAvailableClasses內部使用）
+ *   - buildIndex()：資料載入後建立班級反查索引（效能最佳化，O(n×m)→O(班級數)）
+ *   - checkEmptyResult()：篩選條件是否會產生空資料的判定與提示訊息
+ *     （內部依賴isProgramAvailable／getTypeAvailability／getAvailableClasses）
+ *   - isRetakerSwitchLocked()：學制選為「重修生」時鎖定重修生開關
+ *
+ * v1.2.0（0904）前，本模組依規格書v3.1規則一至五完整設計、匯出18個公開
+ * 方法；經/systematic-debugging窮舉式審查以reachability graph逐一確認，
+ * 規則一（學期→學制反灰）／規則二（學制→課程類型鎖定）／規則四（重置鏈）
+ * 對應的main.js UI行為實際上由main.js自己的行內實作驅動
+ * （classifyProgram()、disabledMap[suffix]等），與本模組並行、互不呼叫，
+ * 故v1.2.0移除10個確認零呼叫的孤兒函式與3個僅供其使用的常數。詳見下方
+ * 版本歷程與CHANGELOG docs74。
  *
  * 依賴：無（純 ES module，可直接用 <script src="..."> 載入）
  * 使用方式：FilterEngine.getProgram(sheetName) 等
@@ -17,6 +24,17 @@
  * 版本歷程：
  *   v1.0.0  2026-05-13  初版，涵蓋規格書 v3.1 規則一至五
  *   v1.1.0  2026-05-27  BUG-FIX: getProgram() pattern 補齊四技/學士後護各種班名格式，與 main.js classifyProgram 對齊
+ *   v1.2.0  2026-09-04  TRIM（/systematic-debugging 窮舉式審查）：移除確認
+ *           零呼叫的10個函式（isRetakeStudent、getProgramAvailability、
+ *           getDisabledPrograms、allowsPracticum、getClassCount、
+ *           getFieldsToReset、applyResetChain、formatSemester、
+ *           getSemesterHalf、buildFilterSummary）與3個常數
+ *           （PROGRAM_THEORY_CLASSES、FILTER_LEVELS、FILTER_DEFAULTS）。
+ *           規則一/二/四對應main.js UI行為由main.js行內實作驅動、非本模組
+ *           ——保留的getProgram/isProgramAvailable/getTypeAvailability/
+ *           getAvailableClasses/_normalizeSheetName皆為buildIndex／
+ *           checkEmptyResult／isRetakerSwitchLocked三個實際呼叫點的直接
+ *           或間接依賴，非死碼。
  */
 
 const FilterEngine = (() => {
@@ -134,20 +152,6 @@ const FilterEngine = (() => {
     'retake_student': ['theory', 'practicum'],  // 依個人
   };
 
-  /**
-   * 各學制的正課班級（顯示順序依規格書§二）
-   * 動態班級（護21X 等）由資料即時生成；此常數作為 fallback / 排序基準
-   */
-  const PROGRAM_THEORY_CLASSES = {
-    '2yr_gen':        ['護二一A','護二一B','護二一C','護二一D','護二一E'],
-    '2yr_work':       ['護二一甲','護二一乙','護二一戊','護二一己'],
-    '2yr_night':      ['護二一丙','護二一丁'],
-    '4yr':            ['護四一A','護四一B','護四一C','護四一D'],
-    'post':           ['學士後護'],
-    'retake_class':   ['重修班'],
-    'retake_student': ['重修生'],
-  };
-
   // ════════════════════════════════════════════════════════
   // § 1  Sheet Name 正規化 & Program 推導
   // ════════════════════════════════════════════════════════
@@ -171,6 +175,14 @@ const FilterEngine = (() => {
     if (raw.normalize) raw = raw.normalize('NFKC');
     return raw
       .replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060\uFE00-\uFE0F\uFEFF]/g, '')
+      // [BUG-FIX 穿透式審查 0914] 補上 main.js::cleanSheetName() 有、
+      // 這裡原本缺漏的「破折號變體→標準連字號」正規化步驟。上方註解
+      // 明講「regex 直接複製 main.js 對應判斷式，確保兩處永遠同步」，
+      // 但這一步當時沒複製過來，導致兩份「永遠同步」的正規化函式其實
+      // 悄悄分岔。用全部31個真實歷史成績檔驗證：目前沒有任何 sheet_name
+      // 含此類破折號變體字元，此修正對既有真實資料零風險，純粹補回
+      // 兩者本該同步的部分。
+      .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-')
       .replace(/[\s\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+/g, '');
   }
 
@@ -235,47 +247,9 @@ const FilterEngine = (() => {
     return null;
   }
 
-  /**
-   * 判斷 record 是否為重修生（is_retaker=true 且 program 不是 retake_class）
-   * @param {object} record  data.json 的單一 record 物件
-   * @param {string} program  已解析的 program code
-   * @returns {boolean}
-   */
-  function isRetakeStudent(record, program) {
-    return !!record?.is_retaker && program !== 'retake_class';
-  }
-
   // ════════════════════════════════════════════════════════
   // § 2  規則一：學期 → 學制可用性
   // ════════════════════════════════════════════════════════
-
-  /**
-   * 取得指定學期下，各學制的啟用/停用狀態
-   * @param {string} semester  'all' | '1131' | '1142' 等 4 碼字串
-   * @returns {Object}  { '2yr_gen': true, '4yr': false, ... }
-   *   true = 可選；false = 應反灰
-   */
-  function getProgramAvailability(semester) {
-    const result = {};
-    PROGRAM_ORDER.forEach(p => { result[p] = true; });
-
-    if (!semester || semester === 'all') return result;
-
-    const suffix = String(semester).slice(-1);  // 取最後一碼 '1' 或 '2'
-    const disabled = SEM_DISABLED_PROGRAMS[suffix] || [];
-    disabled.forEach(p => { result[p] = false; });
-    return result;
-  }
-
-  /**
-   * 取得指定學期下不可選的學制清單
-   * @param {string} semester
-   * @returns {string[]}  program code 陣列
-   */
-  function getDisabledPrograms(semester) {
-    const avail = getProgramAvailability(semester);
-    return PROGRAM_ORDER.filter(p => !avail[p]);
-  }
 
   /**
    * 指定學制在指定學期是否可用
@@ -305,13 +279,6 @@ const FilterEngine = (() => {
       theory:    allowed.includes('theory'),
       practicum: allowed.includes('practicum'),
     };
-  }
-
-  /**
-   * 指定學制是否允許實驗課
-   */
-  function allowsPracticum(program) {
-    return getTypeAvailability(program).practicum;
   }
 
   // ════════════════════════════════════════════════════════
@@ -415,88 +382,6 @@ const FilterEngine = (() => {
     return _sort([...classMap.values()]);
   }
 
-  /**
-   * 單一班級的學生人數
-   * @param {string} sheetName  已正規化的 sheet_name
-   * @param {string} semester   'all' | '1141' 等
-   * @param {string} courseType 'all' | 'theory' | 'practicum'
-   * @param {object} data       全域 DATA
-   * @returns {number}
-   */
-  function getClassCount(sheetName, semester, courseType, data) {
-    if (!data?.class_summary) return 0;
-    const normalizedTarget = _normalizeSheetName(sheetName);
-    let count = 0;
-    Object.values(data.class_summary).forEach(c => {
-      const sn = _normalizeSheetName(c.sheet_name || '');
-      if (sn !== normalizedTarget) return;
-      if (semester && semester !== 'all' && String(c.semester) !== String(semester)) return;
-      if (courseType && courseType !== 'all' && c.type !== courseType) return;
-      count += Number(c.count || 0);
-    });
-    return count;
-  }
-
-  // ════════════════════════════════════════════════════════
-  // § 5  規則四：重置鏈
-  // ════════════════════════════════════════════════════════
-
-  /**
-   * 定義各篩選器的層級（數字越小越上層）
-   * 上層變動時，所有 level 較大的欄位自動重置
-   */
-  const FILTER_LEVELS = {
-    semester:    1,
-    program:     2,
-    courseType:  3,
-    classSheet:  4,
-    metric:      5,
-    passFilter:  5,
-    searchId:    6,
-  };
-
-  /**
-   * 各篩選器的預設值
-   */
-  const FILTER_DEFAULTS = {
-    semester:   'all',
-    program:    'all',
-    courseType: 'all',
-    classSheet: 'all',
-    metric:     'semester_score',
-    passFilter: 'all',
-    searchId:   '',
-  };
-
-  /**
-   * 當指定欄位變動時，計算需要重置的下層欄位
-   * @param {string} changedField  如 'semester'
-   * @returns {string[]}  需重置的欄位名稱列表（含顯示用中文名）
-   */
-  function getFieldsToReset(changedField) {
-    const changedLevel = FILTER_LEVELS[changedField];
-    if (!changedLevel) return [];
-    return Object.entries(FILTER_LEVELS)
-      .filter(([field, level]) => level > changedLevel && field !== changedField)
-      .map(([field]) => field);
-  }
-
-  /**
-   * 套用重置鏈，回傳新的篩選器狀態
-   * @param {object} currentState  現有篩選狀態
-   * @param {string} changedField  觸發變動的欄位
-   * @param {*}      newValue      新值
-   * @returns {{ state: object, resetFields: string[] }}
-   */
-  function applyResetChain(currentState, changedField, newValue) {
-    const fieldsToReset = getFieldsToReset(changedField);
-    const newState = { ...currentState, [changedField]: newValue };
-    fieldsToReset.forEach(field => {
-      newState[field] = FILTER_DEFAULTS[field];
-    });
-    return { state: newState, resetFields: fieldsToReset };
-  }
-
   // ════════════════════════════════════════════════════════
   // § 6  規則五：重修生全域開關
   // ════════════════════════════════════════════════════════
@@ -558,111 +443,49 @@ const FilterEngine = (() => {
   }
 
   // ════════════════════════════════════════════════════════
-  // § 8  學期格式工具
+  // § 8  公開 API
   // ════════════════════════════════════════════════════════
-
-  /**
-   * 將原始學期代碼格式化為顯示字串
-   * '1131' → '113(1)'、'1142' → '114(2)'
-   * @param {string|number} semester
-   * @returns {string}
-   */
-  function formatSemester(semester) {
-    const s = String(semester || '').trim();
-    const m = s.match(/^(\d{3})-?([12])$/);
-    if (m) return `${m[1]}(${m[2]})`;
-    // 4-digit format: '1131' → '113(1)'
-    const m4 = s.match(/^(\d{3})([12])$/);
-    if (m4) return `${m4[1]}(${m4[2]})`;
-    return s || '—';
-  }
-
-  /**
-   * 取得學期後綴（'1' 或 '2'）
-   * @param {string} semester
-   * @returns {'1'|'2'|null}
-   */
-  function getSemesterHalf(semester) {
-    if (!semester || semester === 'all') return null;
-    const s = String(semester);
-    const last = s.slice(-1);
-    return (last === '1' || last === '2') ? last : null;
-  }
-
-  // ════════════════════════════════════════════════════════
-  // § 9  狀態摘要（篩選器收合用）
-  // ════════════════════════════════════════════════════════
-
-  /**
-   * 產生篩選器收合後的單行摘要字串
-   * 範例：'113(2) · 四技一般 · 正課'
-   * @param {object} state  { semester, program, courseType, classSheet, ... }
-   * @returns {string}
-   */
-  function buildFilterSummary(state) {
-    const parts = [];
-    if (state.semester && state.semester !== 'all') {
-      parts.push(formatSemester(state.semester));
-    }
-    if (state.program && state.program !== 'all') {
-      parts.push(PROGRAM_LABELS[state.program] || state.program);
-    }
-    if (state.courseType && state.courseType !== 'all') {
-      parts.push(TYPE_LABELS[state.courseType] || state.courseType);
-    }
-    if (state.classSheet && state.classSheet !== 'all') {
-      parts.push(state.classSheet);
-    }
-    return parts.length ? parts.join(' · ') : '全部條件';
-  }
-
-  // ════════════════════════════════════════════════════════
-  // § 10  公開 API
-  // ════════════════════════════════════════════════════════
+  // TRIM（/systematic-debugging 窮舉式審查，0904／docs74）：本模組原依
+  // 規格書v3.1規則一至五設計、匯出18個公開方法，但main.js實際上僅呼叫
+  // buildIndex／checkEmptyResult／isRetakerSwitchLocked三者（皆有
+  // typeof-guard），其餘規則一至四對應的main.js UI行為（學期→學制反灰、
+  // 學制→課程類型鎖定、重置鏈）另有main.js自己的行內實作
+  // （classifyProgram()、disabledMap[suffix]等），與本模組並行、互不
+  // 呼叫。以完整reachability graph（自3個實際呼叫點逆向追蹤）逐一確認
+  // 零呼叫後，移除以下10個孤兒函式與3個僅供其使用的常數：
+  // isRetakeStudent、getProgramAvailability、getDisabledPrograms、
+  // allowsPracticum、getClassCount、getFieldsToReset、applyResetChain、
+  // formatSemester、getSemesterHalf、buildFilterSummary、
+  // PROGRAM_THEORY_CLASSES、FILTER_LEVELS、FILTER_DEFAULTS。
+  // 保留者：getProgram／isProgramAvailable／getTypeAvailability／
+  // getAvailableClasses／_normalizeSheetName皆為上述3個實際呼叫點的
+  // 直接或間接依賴，非死碼。詳見CHANGELOG docs74。
 
   return {
     // 常數（唯讀）
     PROGRAM_LABELS,
     PROGRAM_ORDER,
     TYPE_LABELS,
-    FILTER_DEFAULTS: { ...FILTER_DEFAULTS },
 
     // § 1  Program 推導
     getProgram,
     normalizeSheetName: _normalizeSheetName,
-    isRetakeStudent,
 
     // § 2  規則一
-    getProgramAvailability,
-    getDisabledPrograms,
     isProgramAvailable,
 
     // § 3  規則二
     getTypeAvailability,
-    allowsPracticum,
 
     // § 4  規則三
     buildIndex,          // BUG-1：資料載入後呼叫一次以建立索引
     getAvailableClasses,
-    getClassCount,
-
-    // § 5  規則四
-    FILTER_LEVELS,
-    getFieldsToReset,
-    applyResetChain,
 
     // § 6  規則五
     isRetakerSwitchLocked,
 
     // § 7  防空值
     checkEmptyResult,
-
-    // § 8  工具
-    formatSemester,
-    getSemesterHalf,
-
-    // § 9  摘要
-    buildFilterSummary,
   };
 
 })();

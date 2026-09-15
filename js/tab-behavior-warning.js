@@ -580,9 +580,15 @@ const BehaviorWarningTab = (() => {
         ? `<td>${_renderOutcome(student.actual_outcome)}</td>`
         : "";
 
+      // 36號規格書決議（零、決策摘要）：提前預警顯示規則不套用8小時徽章
+      // 的14天窗口——這份花名冊本身就是「目前目標學期」的即時清單
+      // （見 getWarningTargetSemester() 鎖定最新未結算學期），所以永遠
+      // 顯示完整學號；查無反查結果時 fallback 回 masked_id，不中斷渲染。
+      const displayId = resolveRawStudentId(student.anon_id) || student.masked_id;
+
       return `
         <tr data-wrow-color="${meta.color}" data-wrow-disagree="${isDisagree}">
-          <td>${_safeText(student.masked_id)}</td>
+          <td>${_safeText(displayId)}</td>
           <td><span class="warning-level-pill" data-wpill-bg="${meta.bg}" data-wpill-color="${meta.color}">${pillLabel}</span></td>
           <td>${_safeText(student.risk_source || "--")}</td>
           <td>${_safeText(student.r_cluster)}</td>
@@ -643,10 +649,9 @@ const BehaviorWarningTab = (() => {
     document.getElementById("warningCsvBtn")?.addEventListener("click", _exportCsv);
   }
 
-  function _csvCell(value) {
-    const text = value == null ? "" : String(value);
-    return /[,"\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-  }
+  // v202609：CSV欄位逸出改呼叫 main.js::csvCellEscape() 共用函式，不再各自
+  // 維護一份——36號規格書第八節點名這個專案已經因「同一段邏輯被迫塞進太多
+  // 分支/複本」吃過虧（mask_student_id 兩處各自維護導致跑掉），這裡順手一併收斂。
 
   function _exportCsv() {
     let students = _warningData.students || [];
@@ -656,6 +661,10 @@ const BehaviorWarningTab = (() => {
 
     const hasValidation = "validation_date" in (_warningData.meta || {});
     const headers = [
+      // student_id：36號規格書新增欄，永遠是完整學號（不套14天窗口，理由同
+      // _renderStudentList()）；純加欄不動既有 masked_id 欄位順序與內容，
+      // 避免破壞既有依賴此CSV schema的下游流程。
+      "student_id",
       "masked_id", "risk_level", "risk_level_final", "risk_level_bas", "risk_source", "model_disagreement",
       "r_cluster", "s_cluster",
       "learning_approach", "midterm_score", "midterm_status",
@@ -666,6 +675,7 @@ const BehaviorWarningTab = (() => {
     const lines = [headers.join(",")];
     students.forEach((student) => {
       const row = [
+        resolveRawStudentId(student.anon_id) || student.masked_id,
         student.masked_id,
         _studentRiskLevel(student),
         student.risk_level_final ?? "",
@@ -686,7 +696,7 @@ const BehaviorWarningTab = (() => {
           student.actual_final_score ?? "",
           student.actual_outcome ?? "",
         ] : []),
-      ].map(_csvCell);
+      ].map(csvCellEscape);
       lines.push(row.join(","));
     });
 

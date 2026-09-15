@@ -31,7 +31,7 @@ const BehaviorLoader = (() => {
   // Must match sw.js BUILD_VERSION and index.html's JS ?v= parameter.
   // A new value makes every JSON request a new URL, so an older Service
   // Worker or browser HTTP cache cannot return a prior ETL result.
-  const DATA_VERSION = "202608260923";
+  const DATA_VERSION = "202609151026";
 
   // ── 同時請求去重（避免多個 Tab 並發初始化時重複 fetch）─────
   // 例：sub-warning 與 Tab R 的 lazyInit 可能在同一時刻
@@ -195,6 +195,13 @@ const BehaviorLoader = (() => {
     microImmunoReadingShortfall: (semester) => fetchJSON(
       `microImmunoReadingShortfall_${semester}`,
       DATA_ROOT + `micro_immuno_reading_shortfall_${semester}.json`,
+    ),
+    // checkpoint版（學期中進度快照）：比照上面 microImmunoReadingShortfall
+    // 同一參數化寫法。查無檔案是絕大多數學期的正常情況（人工手動觸發，
+    // 大部分時候未執行），呼叫端自行 try/catch 靜默處理。
+    microImmunoReadingCheckpoint: (semester) => fetchJSON(
+      `microImmunoReadingCheckpoint_${semester}`,
+      DATA_ROOT + `micro_immuno_reading_checkpoint_${semester}.json`,
     ),
   };
 

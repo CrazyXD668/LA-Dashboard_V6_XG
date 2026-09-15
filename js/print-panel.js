@@ -60,6 +60,7 @@ const PrintPanel = (() => {
     { id: "rRadarChart", label: "高風險學生雷達圖", tab: "R 高風險", type: "canvas", checked: false },
     { id: "rTemporalChart", label: "高風險時間趨勢", tab: "R 高風險", type: "canvas", checked: false },
     { id: "rRedFlags", label: "高風險紅旗摘要", tab: "R 高風險", type: "dom", checked: false },
+    { id: "rReadingShortfallList", label: "8小時閱讀門檻逐生清單", tab: "R 高風險", type: "dom", checked: false },
     { id: "rPrescriptions", label: "教學介入建議", tab: "R 高風險", type: "dom", checked: false },
   ];
 
@@ -414,7 +415,9 @@ const PrintPanel = (() => {
     // cloneNode 會原樣保留此行內樣式，若不處理，使用者未展開就直接列印會導致
     // 內容空白。列印本來就無法互動摺疊，故此處強制展開；折疊按鈕已被上一行的
     // button 選擇器移除，不會殘留在列印輸出中。
-    root.querySelectorAll(".r-flag-body").forEach((node) => node.style.removeProperty("display"));
+    // .r-shortfall-body（36號規格書第八節新增的逐生清單）沿用同一類收合
+    // 元件手感，會踩到一模一樣的「未展開就列印→內容空白」問題，一併納入。
+    root.querySelectorAll(".r-flag-body, .r-shortfall-body").forEach((node) => node.style.removeProperty("display"));
     root.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
     root.querySelectorAll("[data-action], [data-tip], [onclick]").forEach((node) => {
       node.removeAttribute("data-action");

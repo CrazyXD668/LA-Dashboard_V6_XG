@@ -23,6 +23,8 @@
 //        scatter_data 即時重算真實 r 值（† 角標標示），取代整格直接放棄；
 //        目前等待 ETL 補上 meta.excluded_material_detail 即自動生效，
 //        欄位補上前維持現行 Δ規模 診斷符號、不影響現有行為。
+// 更新：2026-09-15 UI/UX 全面優化：明暗模式、桌面/PWA 響應式控制、圖表可讀性、
+//        鍵盤/觸控焦點、按鈕語意、115(1) 8 小時閱讀門檻逐生清單與 checkpoint 流程。
 // ==========================================================
 
 const CACHE_PREFIX = 'la-dash-v11-docs-cachefix';
@@ -30,7 +32,7 @@ const DATA_CACHE_PREFIX = 'la-dash-v11-docs-cachefix-data';
 // Keep this value identical to index.html's ?v= values and
 // js/behavior-loader.js DATA_VERSION.  update-dashboard-after-etl.ps1
 // updates all three as one deployment transaction.
-const BUILD_VERSION = '202608260923';
+const BUILD_VERSION = '202609151026';
 
 const CACHE_VERSION = `${CACHE_PREFIX}-${BUILD_VERSION}`;
 const DATA_CACHE = `${DATA_CACHE_PREFIX}-${BUILD_VERSION}`;
@@ -48,21 +50,22 @@ const APP_SHELL = [
   './js/vendor/chart.umd.min.js',
   './js/vendor/chartjs-plugin-annotation.min.js',
   './js/frame-guard.js',
-  './js/filter-engine.js?v=202608260923',
-  './js/main.js?v=202608260923',
+  './js/filter-engine.js?v=202609151026',
+  './js/main.js?v=202609151026',
   './js/vendor/d3.min.js',
-  './js/chart-registry.js?v=202608260923',
-  './js/help-modal.js?v=202608260923',
-  './js/behavior-loader.js?v=202608260923',
-  './js/tab-behavior-radar.js?v=202608260923',
-  './js/tab-behavior-correlation.js?v=202608260923',
-  './js/tab-behavior-time.js?v=202608260923',
-  './js/tab-behavior-lsa.js?v=202608260923',
-  './js/tab-behavior-cross.js?v=202608260923',
-  './js/tab-behavior-warning.js?v=202608260923',
-  './js/behavior-init.js?v=202608260923',
-  './js/at-risk-report.js?v=202608260923',
-  './js/print-panel.js?v=202608260923',
+  './js/chart-registry.js?v=202609151026',
+  './js/help-modal.js?v=202609151026',
+  './js/behavior-loader.js?v=202609151026',
+  './js/tab-behavior-radar.js?v=202609151026',
+  './js/tab-behavior-correlation.js?v=202609151026',
+  './js/tab-behavior-time.js?v=202609151026',
+  './js/tab-behavior-lsa.js?v=202609151026',
+  './js/tab-behavior-cross.js?v=202609151026',
+  './js/tab-behavior-warning.js?v=202609151026',
+  './js/behavior-init.js?v=202609151026',
+  './js/at-risk-report.js?v=202609151026',
+  './js/print-panel.js?v=202609151026',
+  './js/ui-enhancements.js?v=202609151026',
 ];
 
 self.addEventListener('install', (event) => {

@@ -12,6 +12,13 @@ const AtRiskReportManager = (() => {
   let _currentSemData = null;
   let _radarFilter = null;
 
+  // _currentSem 沿用 at_risk_profile.json 的 by_semester 鍵值格式「115(1)」，
+  // 但 micro_immuno_reading_shortfall_*.json 檔名與 DATA.meta.exam_end_dates
+  // 的鍵值都是 data.json/warning_*.json 慣用的緊湊格式「1151」（見936行原本
+  // 區域定義的同款轉換，這裡提升到module層級供多處共用，避免各自維護一份
+  // 又不小心漏改其中一處）。
+  const _semDigits = (v) => String(v ?? '').replace(/\D/g, '');
+
   // ── 第4類紅旗：提前預警摘要（warning_*.json）────────────
   // 與 sub-warning（tab-behavior-warning.js）共用同一份資料來源，
   // 透過 BehaviorLoader.loadWarningForCurrentTarget() 取得「目前尚無
@@ -193,6 +200,8 @@ const AtRiskReportManager = (() => {
   // 直接嘗試載入，查無檔案（多數學期皆屬此情況）時靜默略過、不視為錯誤。
   let _readingShortfallData = null;
   let _readingShortfallSemester = null;
+  let _readingCheckpointData = null;
+  let _readingCheckpointSemester = null;
 
   function _buildReadingShortfallFlag() {
     if (!_readingShortfallData || _readingShortfallSemester !== _currentSem) return null;
@@ -224,21 +233,83 @@ const AtRiskReportManager = (() => {
 
   // 見規劃書最終規格第4節：單一學生層級的警示徽章文字，供學生列表/
   // 高風險名單逐筆顯示於該生列旁（met_8hr_threshold===false時顯示）。
-  const READING_SHORTFALL_BADGE_TEXT = '⚠️ 未滿 8 小時 (送出成績前請手動 × 0.56)';
+  // [AUDIT-FIX 穿透式審查 0907] 原本這裡是寫死的文字常數
+  // `'⚠️ 未滿 8 小時 (送出成績前請手動 × 0.56)'`，跟正上方
+  // _buildReadingShortfallFlag() 的摘要文字各自維護「8小時」「×0.56」
+  // 這兩個數字——兩處分別維護同一條規則，一旦門檻或倍率調整，只改
+  // 其中一處就會跑掉（這正是36號規格書自己點名過的那類問題）。改為
+  // 從資料動態組字串，兩處共用同一份 threshold_hours／
+  // manual_adjustment_multiplier_hint，且與 _buildReadingShortfallFlag()
+  // 相同的 `?? 8`／`?? 0.56` fallback 寫法保持一致。
+  function _readingShortfallBadgeText(d) {
+    const hrs  = d?.threshold_hours ?? 8;
+    const mult = d?.manual_adjustment_multiplier_hint ?? 0.56;
+    return `⚠️ 未滿 ${hrs} 小時 (送出成績前請手動 × ${mult})`;
+  }
 
-  function readingShortfallBadgeFor(studentId) {
+  // [AUDIT-FIX 穿透式審查 0907] 原本用 s.student_id（遮蔽學號，如
+  // "310****01"）比對，但遮蔽學號並不保證唯一——同一份清單內兩名
+  // 真實學生前3碼+後2碼剛好相同時，.find() 只會抓到陣列中第一筆，
+  // 會把另一名學生的達標狀態誤植過來。這正是先前為提前預警花名冊
+  // 改用 anon_id 比對時修過的同一類問題（見 tab-behavior-warning.js
+  // resolveRawStudentId 相關修正），這裡當初沒有一併套用。改用
+  // anon_id（SHA-256雜湊，實務上無碰撞疑慮）比對；本模組內唯一呼叫點
+  // （_renderReadingShortfallList）與main.js新增的跨學期查詢都已同步
+  // 改傳anon_id。
+  function readingShortfallBadgeFor(anonId) {
     if (!_readingShortfallData || _readingShortfallSemester !== _currentSem) return null;
     const students = Array.isArray(_readingShortfallData.students) ? _readingShortfallData.students : [];
-    const rec = students.find(s => s.student_id === studentId);
+    const rec = students.find(s => s.anon_id === anonId);
     if (!rec || rec.met_8hr_threshold) return null;
-    return READING_SHORTFALL_BADGE_TEXT;
+    return _readingShortfallBadgeText(_readingShortfallData);
+  }
+
+  // [AUDIT-FIX 穿透式審查 0907 — Q2] _buildReadingShortfallFlag() 與
+  // readingShortfallBadgeFor() 的資料／函式本來就緒，但從未真正接到
+  // Panel C 個人學生查詢（main.js::renderProfile()）——教師搜尋單一
+  // 學生時完全看不到8小時未達標警示，即使資料與徽章文字函式都已具備。
+  // 原本的 readingShortfallBadgeFor() 綁定於 R 高風險頁籤自己當下選取
+  // 的 _currentSem／_readingShortfallData，語意上只適用「目前這個
+  // 面板正在看的學期」，不能直接拿來查「任意學生、任意學期」。
+  // 新增這個跨學期查詢函式，各學期各自快取（含查無資料的學期，避免
+  // 同一學期反覆重試fetch），供main.js非同步呼叫、不阻塞profile初次
+  // 渲染。查無 micro_immuno_reading_shortfall_{semester}.json（絕大多數
+  // 學期皆屬此情況，只有115(1)起有合併課）時靜默回傳null，比照
+  // _loadReadingShortfallForSemester()既有的容錯慣例。
+  const _shortfallBySemesterCache = new Map();  // semester(緊湊格式) → {students:[...], threshold_hours, manual_adjustment_multiplier_hint} | null
+
+  async function getReadingShortfallBadgeForAnySemester(anonId, semester) {
+    if (!anonId || !semester) return null;
+    const semKey = _semDigits(semester);
+    if (!semKey) return null;
+
+    let data;
+    if (_shortfallBySemesterCache.has(semKey)) {
+      data = _shortfallBySemesterCache.get(semKey);
+    } else {
+      try {
+        if (typeof BehaviorLoader === 'undefined' || !BehaviorLoader.load?.microImmunoReadingShortfall) {
+          data = null;
+        } else {
+          data = await BehaviorLoader.load.microImmunoReadingShortfall(semKey);
+        }
+      } catch (e) {
+        data = null;  // 查無檔案是絕大多數學期的正常情況，靜默略過
+      }
+      _shortfallBySemesterCache.set(semKey, data || null);
+    }
+
+    if (!data || !Array.isArray(data.students)) return null;
+    const rec = data.students.find(s => s.anon_id === anonId);
+    if (!rec || rec.met_8hr_threshold) return null;
+    return _readingShortfallBadgeText(data);
   }
 
   async function _loadReadingShortfallForSemester(sem) {
     if (!sem || sem === '__all__') return;
     if (typeof BehaviorLoader === 'undefined' || !BehaviorLoader.load?.microImmunoReadingShortfall) return;
     try {
-      const data = await BehaviorLoader.load.microImmunoReadingShortfall(sem);
+      const data = await BehaviorLoader.load.microImmunoReadingShortfall(_semDigits(sem));
       // 防race condition：非同步載入期間使用者可能已切換到其他學期，
       // 此時不套用已過期的回應（比照既有 switchSemester 先確認再更新畫面的原則）。
       if (_currentSem !== sem) return;
@@ -252,6 +323,216 @@ const AtRiskReportManager = (() => {
       // 查無檔案是多數學期的正常情況（僅115(1)起有合併課），靜默略過，
       // 不印警告避免每次切換學期都在console洗版。
     }
+  }
+
+  async function _loadReadingCheckpointForSemester(sem) {
+    if (!sem || sem === '__all__') return;
+    if (typeof BehaviorLoader === 'undefined' || !BehaviorLoader.load?.microImmunoReadingCheckpoint) return;
+    try {
+      const data = await BehaviorLoader.load.microImmunoReadingCheckpoint(_semDigits(sem));
+      // 防race condition，比照上方 _loadReadingShortfallForSemester() 同一原則。
+      if (_currentSem !== sem) return;
+      _readingCheckpointData = data;
+      _readingCheckpointSemester = sem;
+      // 直接觸發重繪，不經過 renderRedFlags()——checkpoint資料不影響紅旗
+      // 摘要卡（見決策：徽章不聯動），沒必要每次都連帶重算一次無關的紅旗清單。
+      _renderReadingShortfallList();
+    } catch (e) {
+      // 查無checkpoint檔案是絕大多數情況（人工手動觸發，大部分時候未
+      // 執行），靜默略過。
+    }
+  }
+
+  // ── §5.5b 8小時徽章逐生清單 ──────────────────────────────
+  // 36號規格書第八節（本版定案）：8小時徽章逐生清單，獨立於 renderRedFlags()
+  // 共用渲染迴圈之外（該迴圈 body.textContent 只能顯示純文字，無法承載
+  // 表格與逐列按鈕，見規格書該節「技術細節」說明）。渲染到 index.html 的
+  // #rReadingShortfallList 容器，緊接在紅旗警示區塊之後。
+  //
+  // 顯示範圍：所有學生（含已達標），而非只列未達標者——摘要卡片文字已
+  // 明白寫「完整名單」，讓授課教師能核對到每一位學生的實際時數，而不是
+  // 只看到片面的「未達標名單」。未達標者額外顯示 readingShortfallBadgeFor()
+  // 徽章文字，並排序至最前面方便優先處理。
+  function _renderOneReadingList(el, data, opts) {
+    const d = data;
+    const students = Array.isArray(d.students) ? d.students : [];
+    const shortfallCount = d.shortfall_count ?? students.filter(s => !s.met_8hr_threshold).length;
+    // guard：shortfallCount===0時整個不渲染，比照摘要卡片同一判斷準則
+    // （_buildReadingShortfallFlag() 第202行），資料乾淨的學期不硬跳出空清單。
+    if (shortfallCount === 0 || students.length === 0) return;
+
+    // 揭示規則只適用本清單（8小時徽章），與提前預警花名冊（永遠顯示、
+    // 見 tab-behavior-warning.js）刻意不同，見 isWithinIdRevealWindow() 說明。
+    const revealFull = isWithinIdRevealWindow(_semDigits(_currentSem));
+
+    const sorted = students.slice().sort((a, b) => {
+      if (a.met_8hr_threshold !== b.met_8hr_threshold) return a.met_8hr_threshold ? 1 : -1;
+      return String(a.student_id ?? '').localeCompare(String(b.student_id ?? ''));
+    });
+
+    const card = document.createElement('div');
+    card.className = 'r-shortfall-card' + (opts.cardClassSuffix || '');
+
+    const heading = document.createElement('h3');
+    heading.className = 'r-section-heading';
+    heading.textContent = opts.titleText;
+    card.appendChild(heading);
+
+    // 收合互動比照 renderRedFlags() 既有 toggleBtn 慣例（UNIFY-R），
+    // 避免同一畫面出現兩套不同手感的展開/收合元件。
+    // 注意：body.id/body.className 不參數化——print-panel.js 靠
+    // ".r-shortfall-body" 字面比對找出列印時要強制展開的區塊，改了會讓
+    // checkpoint卡片列印時悄悄維持收合狀態（見規格書§3.3防呆提醒）。
+    const bodyId = 'rShortfallListBody';
+    const body = document.createElement('div');
+    body.id = bodyId;
+    body.className = 'r-shortfall-body';
+    body.style.setProperty('display', 'none');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'r-flag-toggle';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.setAttribute('aria-controls', bodyId);
+
+    const toggleIcon = document.createElement('span');
+    toggleIcon.className   = 'r-flag-toggle-icon';
+    toggleIcon.textContent = '▶';
+
+    const toggleLabel = document.createElement('span');
+    toggleLabel.className   = 'r-flag-toggle-label';
+    toggleLabel.textContent = `逐生清單（共 ${students.length} 人，${shortfallCount} 人未達標）`;
+
+    const toggleHint = document.createElement('span');
+    toggleHint.className   = 'r-flag-toggle-hint';
+    toggleHint.textContent = '點擊展開';
+
+    toggleBtn.append(toggleIcon, toggleLabel, toggleHint);
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = body.style.display !== 'none';
+      body.style.setProperty('display', isOpen ? 'none' : 'block');
+      toggleIcon.textContent = isOpen ? '▶' : '▼';
+      toggleHint.textContent = isOpen ? '點擊展開' : '點擊收合';
+      toggleBtn.setAttribute('aria-expanded', String(!isOpen));
+    });
+    card.appendChild(toggleBtn);
+
+    if (!revealFull) {
+      const notice = document.createElement('div');
+      notice.className = 'r-shortfall-window-notice';
+      notice.textContent = '🔒 期末考結束已超過14天，此處學號改以去識別化格式顯示。';
+      body.appendChild(notice);
+    }
+
+    const table = document.createElement('table');
+    table.className = 'r-shortfall-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML =
+      '<tr><th>學號</th><th>累計閱讀時數</th><th>是否達標</th><th>Test III 原始分</th><th>備註</th></tr>';
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    sorted.forEach(s => {
+      const tr = document.createElement('tr');
+      if (!s.met_8hr_threshold) tr.className = 'r-shortfall-row--unmet';
+      const displayId = revealFull ? (resolveRawStudentId(s.anon_id) || s.student_id) : s.student_id;
+      const badge = opts.badgeFor ? opts.badgeFor(s.anon_id) : null;
+      tr.innerHTML =
+        `<td>${escapeHtml(displayId)}</td>` +
+        `<td>${s.cumulative_reading_hours ?? '--'}</td>` +
+        `<td>${s.met_8hr_threshold ? '✅ 達標' : '❌ 未達標'}</td>` +
+        `<td>${s.raw_grade ?? '--'}</td>` +
+        `<td>${badge ? escapeHtml(badge) : ''}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
+
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'r-shortfall-export-btn';
+    exportBtn.textContent = '⬇️ 匯出逐生清單 CSV';
+    // print-panel.js sanitizeClone() 會在列印時自動移除所有 <button>，
+    // 不需要額外處理（見37號規劃書、print-panel.js:405起既有邏輯）。
+    exportBtn.addEventListener('click', () =>
+      _exportReadingShortfallCsv(sorted, revealFull, !!opts.isCheckpoint));
+    body.appendChild(exportBtn);
+
+    card.appendChild(body);
+    el.appendChild(card);
+  }
+
+  function _renderReadingShortfallList() {
+    const el = document.getElementById('rReadingShortfallList');
+    if (!el) return;
+    el.innerHTML = '';
+
+    // [BUG-FIX 穿透式審查 0913，真實pipeline+Playwright真瀏覽器測試發現]
+    // 原本 hasFinal 只檢查「期末版檔案有沒有成功載入」，隱含假設「檔案
+    // 存在＝學期已結束」——但ETL側Phase 5（產生這份檔案的既有邏輯，見
+    // lms_etl.py Phase 5註解）只要偵測到transition_merged_micro學生就會
+    // 無條件產生檔案，不論Test III成績是否已登錄。實測：用Test III僅
+    // 16.7%填寫率的資料跑完整pipeline，Phase 5與checkpoint兩份檔案同時
+    // 產生，畫面卻固定顯示期末版「逐生清單」，checkpoint的「期中進度
+    // 快照」完全無法顯示——決策（2026-09-10）「期末版存在時checkpoint版
+    // 隱藏」的原意是「學期真的結束了就不用看期中快照」，不是「只要
+    // Phase 5曾經跑過就永遠不顯示checkpoint」。改為額外檢查ETL端新增的
+    // grading_complete欄位（見07e_transition_micro_reading.py::
+    // export_shortfall_json()），該欄位缺席時（舊版ETL套件產生、無此
+    // 欄位的資料）視為true以維持既有相容行為，不影響115(1)之前所有已
+    // 正常運作的歷史學期。
+    const hasFinal = _readingShortfallData && _readingShortfallSemester === _currentSem
+      && _readingShortfallData.grading_complete !== false;
+    const hasCheckpoint = _readingCheckpointData && _readingCheckpointSemester === _currentSem;
+    // 決策（2026-09-10）：期末版（且真的已結束）存在時checkpoint版隱藏，不並列顯示。
+    if (hasFinal) {
+      _renderOneReadingList(el, _readingShortfallData, {
+        titleText: '📖 8小時教材閱讀門檻｜逐生清單',
+        cardClassSuffix: '',
+        badgeFor: readingShortfallBadgeFor,  // 既有函式，行為不變
+        isCheckpoint: false,
+      });
+    } else if (hasCheckpoint) {
+      _renderOneReadingList(el, _readingCheckpointData, {
+        titleText: '📖 8小時教材閱讀門檻｜期中進度快照',
+        cardClassSuffix: ' r-shortfall-card--checkpoint',
+        badgeFor: (anonId) => {
+          const rec = (_readingCheckpointData.students || []).find(s => s.anon_id === anonId);
+          return (rec && !rec.met_8hr_threshold) ? '⚠️ 目前累計時數未達門檻' : null;
+        },
+        isCheckpoint: true,
+      });
+    }
+  }
+
+  function _exportReadingShortfallCsv(students, revealFull, isCheckpoint) {
+    // CSV欄位逸出呼叫 main.js::csvCellEscape() 共用函式（見該函式註解：
+    // 避免與 tab-behavior-warning.js 各自維護一份導致跑掉）。
+    const headers = ['student_id', 'anon_id', 'cumulative_reading_hours', 'met_8hr_threshold', 'raw_grade'];
+    const lines = [headers.join(',')];
+    students.forEach(s => {
+      const displayId = revealFull ? (resolveRawStudentId(s.anon_id) || s.student_id) : s.student_id;
+      const row = [
+        displayId,
+        s.anon_id ?? '',
+        s.cumulative_reading_hours ?? '',
+        s.met_8hr_threshold ? 'TRUE' : 'FALSE',
+        s.raw_grade ?? '',
+      ].map(csvCellEscape);
+      lines.push(row.join(','));
+    });
+    const csv = `\uFEFF${lines.join('\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = isCheckpoint
+      ? `reading_checkpoint_${_semDigits(_currentSem)}.csv`
+      : `reading_shortfall_${_semDigits(_currentSem)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
   function switchSemester(sem) {
@@ -295,6 +576,7 @@ const AtRiskReportManager = (() => {
 
     // 第6類：8小時教材閱讀門檻（見上方定義處說明，非同步、查無資料時靜默略過）
     _loadReadingShortfallForSemester(sem);
+    _loadReadingCheckpointForSemester(sem);
 
     const clearBtn = document.getElementById('rRadarClearBtn');
     if (clearBtn) clearBtn.style.setProperty('display', 'none');
@@ -553,7 +835,6 @@ const AtRiskReportManager = (() => {
     // 不相等），導致本卡片無論切到哪個學期都不會顯示——並非本學期剛好都不符合
     // 條件，而是條件本身永遠不可能成立。改為只取數字部分再比對，兩種格式都能
     // 正確辨識為同一學期。
-    const _semDigits = (v) => String(v ?? '').replace(/\D/g, '');
     if (_semDigits(_currentSem) !== _semDigits(_warningSemester) || !_semDigits(_currentSem)) return null;
 
     const s = _warningData.summary;
@@ -702,6 +983,12 @@ const AtRiskReportManager = (() => {
 
     const readingShortfallFlag = _buildReadingShortfallFlag();
     if (readingShortfallFlag) flags.push(readingShortfallFlag);
+
+    // 36號規格書第八節：逐生清單獨立於本迴圈的共用渲染機制之外（見該節
+    // 「為什麼不是直接改_buildReadingShortfallFlag()」），但沿用同一個
+    // 觸發時機，確保三個呼叫點（初始載入／switchSemester／非同步載入
+    // shortfall資料後的重繪）都會同步更新逐生清單，不需要額外追蹤。
+    _renderReadingShortfallList();
 
     el.innerHTML = '';
     if (!flags.length) {
@@ -1071,6 +1358,62 @@ const AtRiskReportManager = (() => {
         color: var(--text-dim, #888);
       }
 
+      /* ── §5.5b 8小時徽章逐生清單（36號規格書第八節，獨立於紅旗
+             警示共用渲染迴圈之外） ─────────────────────────── */
+      .r-shortfall-card {
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border, #e0e0e0);
+        border-left: 3px solid #e67e22;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+      }
+      .r-shortfall-window-notice {
+        font-size: 12px;
+        color: var(--text-dim, #888);
+        background: var(--bg-subtle, rgba(150,150,150,.08));
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin: 8px 0;
+      }
+      .r-shortfall-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .r-shortfall-table th,
+      .r-shortfall-table td {
+        text-align: left;
+        padding: 5px 8px;
+        border-bottom: 1px solid var(--border, #e0e0e0);
+      }
+      .r-shortfall-table th {
+        color: var(--text-dim, #888);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .r-shortfall-row--unmet {
+        background: rgba(230, 126, 34, .08);
+      }
+      .r-shortfall-export-btn {
+        margin-top: 10px;
+        padding: 6px 12px;
+        border: 1px solid var(--border, #e0e0e0);
+        border-radius: 6px;
+        background: var(--card-bg, #fff);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .r-shortfall-export-btn:hover {
+        background: var(--bg-subtle, rgba(150,150,150,.08));
+      }
+      .r-shortfall-card--checkpoint {
+        border-left-color: #2980b9;  /* 藍色系，與期末版橙色系(#e67e22)區隔 */
+      }
+
       /* ── §5.6 處方性建議卡片 ───────────────────────────── */
       .r-presc-card {
         background: var(--card-bg, #fff);
@@ -1208,6 +1551,13 @@ const AtRiskReportManager = (() => {
 
         renderSemesterFilter(sems, def);
         _renderSemData(_currentSemData);
+        // UIUX-1151：若最新學期本身就是含有8小時閱讀資料的目標學期，
+        // 初次進入報告頁也應和使用者手動切換學期時一樣載入逐生清單。
+        // 兩個 loader 皆為獨立、可靜默失敗的惰性請求，不阻塞既有報告主體。
+        if (def && def !== '__all__') {
+          void _loadReadingShortfallForSemester(def);
+          void _loadReadingCheckpointForSemester(def);
+        }
 
       // schema 2.x：降級單學期
       } else {
@@ -1241,5 +1591,6 @@ const AtRiskReportManager = (() => {
     // 見規劃書最終規格第4節：供其他模組（例如未來的逐生列表元件）查詢
     // 特定學生是否需顯示8小時未達標警示徽章，不需重新載入資料。
     readingShortfallBadgeFor,
+    getReadingShortfallBadgeForAnySemester,
   };
 })();
