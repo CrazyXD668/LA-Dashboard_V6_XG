@@ -2231,8 +2231,48 @@ function renderRetakerPassRateTrend(trend, sems) {
   });
 }
 
+// PWA-FIX (評量指標未連動重修分析數據)：期中/期末切換時，重修生的 Δ（成績變化量）
+// 必須改用同一欄位重新計算「本次紀錄分數 - 首修分數」，不能沿用 ETL 端固定以
+// semester_score 算出的靜態 .delta 欄位——那份 delta 只代表「學期成績」的變化量，
+// 與 cCurrentExam 完全無關，這也是切換按鈕原本沒有任何效果的根本原因。
+// 在此統一轉換 recs，讓既有 renderSlope／renderDelta／renderDeltaByProgram 等
+// 讀取 .semester_score／.delta 的程式碼不需逐一修改，只要吃到的 recs 已經是
+// 「依目前指標重新計算」的版本即可（examField==='semester_score' 時原樣傳回，
+// 不影響既有預設行為）。
+//
+// BUG-SHEET-SCOPE-0916（使用者實測回報卡片數字對不起來後，穿透式複查發現）：
+// 首版實作在「目前 sheet 分組（item.recs，預設 bMode='sheet' 依班級切）」內找首修
+// 記錄，但實測真實資料證實：重修生換班重修是常態（例：某生首修在「護二一A」班，
+// 重修卻在「護四一B正課」班，兩者 sheet_name 完全不同）。同一 sheet 分組內若只有
+// 重修那筆、沒有首修那筆，find(r=>!r.is_retaker) 會找不到，退回 recs[0]（=該重修記
+// 錄自己），isFirst 判斷為 true，delta 就被誤判為 null——導致大量「明明有期中/期末
+// 成績可比對」的記錄被錯誤排除（實測：期中有效比對筆數從應有的 740 筆掉到僅 187
+// 筆，期末從 700 筆掉到僅 162 筆；semester_score 因為原本就是走 ETL 端預先算好、
+// 不受 sheet 分組影響的靜態值，沒受影響）。
+// 修正：首修基準改為在該生「跨 sheet 分組」的完整同類型記錄中尋找，與 ETL 端
+// 07_export_json.py 的做法（也是跨班級找首修）對齊，不再受目前 sheet 分組侷限。
+function _withMetricScores(item, examField) {
+  if (examField === 'semester_score') return item.recs;
+  const type = document.getElementById('bFilterType').value;
+  const fullRecs = (DATA.students[item.sid]?.records || [])
+    .filter(r => r.type === type)
+    .sort(compareClassRecords);
+  const firstRec = fullRecs.find(r => !r.is_retaker) || fullRecs[0];
+  const firstVal = firstRec ? firstRec[examField] : null;
+  return item.recs.map(r => {
+    const val = r[examField];
+    const isFirst = r === firstRec;
+    return {
+      ...r,
+      semester_score: val,
+      delta: (isFirst || val == null || firstVal == null) ? null : +(val - firstVal).toFixed(2),
+    };
+  });
+}
+
 function renderB() {
-  const retakers = getRetakerRecords();
+  const rawRetakers = getRetakerRecords();
+  const retakers = rawRetakers.map(item => ({ ...item, recs: _withMetricScores(item, cCurrentExam) }));
   const type = document.getElementById('bFilterType').value;
 
   const allDeltas = retakers.flatMap(r =>
@@ -2240,6 +2280,7 @@ function renderB() {
   );
   const improved = allDeltas.filter(d => d > 0).length;
   const worsened = allDeltas.filter(d => d < 0).length;
+  const unchanged = allDeltas.length - improved - worsened;
   const avgDelta = allDeltas.length ? (allDeltas.reduce((a,b)=>a+b,0)/allDeltas.length).toFixed(1) : '–';
 
   document.getElementById('bStats').innerHTML = `
@@ -2263,6 +2304,18 @@ function renderB() {
       <div class="sub">首修 → 重修</div>
     </div>
   `;
+  // PRECISION-NOTE-0916：使用者實測回報「進步+退步≠重修學生數」，追查後確認兩者
+  // 本來就是不同單位（重修學生＝人數；進步/退步＝依目前指標可比對的重修紀錄筆數，
+  // 一人可能有多筆重修紀錄、也可能該指標剛好無成績可比對），並非能直接相加打平的
+  // 同一份母體。在此補上明確的筆數對帳說明，讓四張卡片的數字都可追溯、不再顯得
+  // 對不起來（進步+退步+持平＝下方揭露的「有效比較」總筆數，缺口＝無該指標成績）。
+  const bStatsNoteEl = document.getElementById('bStatsNote');
+  if (bStatsNoteEl) {
+    bStatsNoteEl.textContent =
+      `依「${metricLabel(cCurrentExam)}」有效比較 ${allDeltas.length} 筆重修紀錄` +
+      `（進步 ${improved} ＋退步 ${worsened} ＋持平 ${unchanged}）；` +
+      `重修學生 ${retakers.length} 人可能含多筆重修紀錄，或該指標缺成績記錄，故不等於上列筆數總和。`;
+  }
 
   const retakerSems = [...DATA.meta.semesters].sort((a, b) => Number(a) - Number(b));
   const retakerTrend = getRetakerSemesterTrend(cCurrentExam);
@@ -3230,13 +3283,15 @@ function renderAnomalyDensity() {
 }
 
 function renderRetakerFirstDist() {
+  // PWA-FIX (評量指標未連動)：同一根因，改讀 cCurrentExam 而非固定 semester_score。
+  const examField = cCurrentExam;
   const bins = Array(11).fill(0);
   Object.values(DATA.students).forEach(s=>{
     if (!s.records.some(r=>r.is_retaker)) return; // 非重修生跳過
     // 取首修記錄（is_retaker=false）中最早那筆
     const firstRec = [...s.records.filter(r=>!r.is_retaker)]
       .sort(compareClassRecords)[0];
-    const first = firstRec?.semester_score;
+    const first = firstRec?.[examField];
     if (first==null) return;
     const b = Math.min(Math.floor(first/10), 10);
     bins[b]++;
@@ -3325,13 +3380,19 @@ function renderRetakeCount(type) {
 
 function renderFirstVsDelta() {
   const type = document.getElementById('bFilterType').value;
+  // PWA-FIX (評量指標未連動)：見 _withMetricScores() 註解，同一根因，
+  // 改讀 cCurrentExam 並就地重算 Δ，不再沿用固定以 semester_score 算出的 r.delta。
+  const examField = cCurrentExam;
   const pts=[];
   Object.values(DATA.students).forEach(s=>{
     const firstRec=[...s.records.filter(r=>!r.is_retaker&&r.type===type)].sort(compareClassRecords)[0];
     const retakeRecs=[...s.records.filter(r=>r.is_retaker&&r.type===type)].sort(compareClassRecords);
     if(!retakeRecs.length) return;
-    const first=firstRec?.semester_score;
-    retakeRecs.forEach(r=>{ if(r.delta!=null&&first!=null) pts.push({x:first,y:r.delta,m:s.name_masked}); });
+    const first=firstRec?.[examField];
+    retakeRecs.forEach(r=>{
+      const val = r[examField];
+      if(val!=null&&first!=null) pts.push({x:first,y:+(val-first).toFixed(2),m:s.name_masked});
+    });
   });
   mkChart('chartFirstVsDelta',{
     type:'scatter',
@@ -3346,7 +3407,7 @@ function renderFirstVsDelta() {
         tooltip:{...CHART_DEFAULTS.plugins.tooltip,
           callbacks:{label:ctx=>`${ctx.raw.m}  首修:${ctx.raw.x}  Δ:${ctx.raw.y>=0?'+':''}${ctx.raw.y}`}}},
       scales:{
-        x:{...CHART_DEFAULTS.scales.x,min:0,max:100,title:{display:true,text:'首修學期成績',color:'var(--text-dim)'}},
+        x:{...CHART_DEFAULTS.scales.x,min:0,max:100,title:{display:true,text:`首修${metricLabel(examField)}`,color:'var(--text-dim)'}},
         y:{...CHART_DEFAULTS.scales.y,title:{display:true,text:'重修成績變化量 Δ',color:'var(--text-dim)'}}
       }
     }

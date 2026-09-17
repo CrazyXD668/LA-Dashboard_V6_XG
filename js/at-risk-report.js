@@ -1185,7 +1185,9 @@ const AtRiskReportManager = (() => {
   }
 
   // ── §6.2 PDF 匯出 ────────────────────────────────────────
-  // @public — HTML onclick 呼叫點（onclick="exportAtRiskPDF()"），
+  // @public — HTML data-action 呼叫點（data-action="exportAtRiskPDF"，經
+  // main.js 中央 data-action 委派器分派；CSP script-src 'self' 不允許 inline
+  // onclick，此處舊註解描述的寫法已於改版時淘汰，僅更新註解未動邏輯），
   // 無法納入 return{}，以 window.XXX 掛載為有意設計。
   window.exportAtRiskPDF = function() {
     // BUG-ATRISK-7 FIX: 若 1 秒內重複點擊，舊的 setTimeout 尚未觸發移除，

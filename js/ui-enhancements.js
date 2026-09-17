@@ -193,13 +193,41 @@
     });
   }
 
+  // [PERF-FIX 0916 穿透式審查] MutationObserver 原本對 document.body 底下任何
+  // DOM 變動（不論來源）都呼叫 schedule() → enhance() 做 5 次全文件
+  // querySelectorAll + 屬性寫入。實測確認：搜尋學號時 main.js 的
+  // _searchStudentRun()/_retakeSearchRun() 每次執行都會 innerHTML 更新
+  // #searchResults／#searchResultsRetake，這個 DOM 變動落在 document.body 下，
+  // 因此每次搜尋結果更新都會觸發一次完整 enhance()，是使用者輸入學號時感覺
+  // 卡頓的實際根因（詳見 ios-pwa-ux-perf-plan_0916.md 第1.2節）。
+  // 這兩個容器只裝文字/連結列表，enhance() 對它們的內容（無 button/canvas/
+  // filter-pair）本來就沒有任何實際作用，故用 allowlist（而非 blocklist）
+  // 判斷：一批 mutation 若全部發生在這兩個容器內，直接跳過整批，不進 schedule()。
+  // 任何命中容器以外的變動（分頁切換、圖表重繪等）維持原有行為不變。
+  const IGNORABLE_MUTATION_SELECTOR = "#searchResults, #searchResultsRetake";
+
+  function isIgnorableMutationList(mutations) {
+    for (let i = 0; i < mutations.length; i++) {
+      const target = mutations[i].target;
+      if (!target || typeof target.closest !== "function" || !target.closest(IGNORABLE_MUTATION_SELECTOR)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function onBodyMutation(mutations) {
+    if (isIgnorableMutationList(mutations)) return;
+    schedule();
+  }
+
   function start() {
     enhance();
     document.addEventListener("click", schedule, true);
     document.addEventListener("change", schedule, true);
     window.addEventListener("resize", schedule, { passive: true });
     if (document.body) {
-      const observer = new MutationObserver(schedule);
+      const observer = new MutationObserver(onBodyMutation);
       observer.observe(document.body, { childList: true, subtree: true });
     }
     window.LAUiEnhancements = { refresh: enhance };
