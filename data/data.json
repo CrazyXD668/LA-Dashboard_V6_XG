@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-09-15T08:51:57",
+    "generated_at": "2026-09-17T20:01:59",
     "semesters": [
       "1001",
       "1002",
@@ -12099,7 +12099,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -22228,7 +22228,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -24131,7 +24131,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -29170,7 +29170,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -30287,7 +30287,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -31246,7 +31246,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -68553,7 +68553,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -68955,7 +68955,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         },
         {
@@ -69598,7 +69598,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -73271,7 +73271,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -92882,7 +92882,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -109728,7 +109728,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -112619,7 +112619,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -113354,7 +113354,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -128752,7 +128752,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": [
             {
               "tag": "缺考",
@@ -133625,7 +133625,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -143793,7 +143793,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -146802,7 +146802,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -185341,7 +185341,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         },
         {
@@ -192250,7 +192250,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -201341,7 +201341,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         }
       ]
@@ -235593,7 +235593,7 @@
           "attend_pct": null,
           "reading_hours": null,
           "is_retaker": false,
-          "delta": 0.0,
+          "delta": null,
           "exceptions": []
         },
         {
