@@ -2143,11 +2143,19 @@ function setBType(type, skipRender) {
 }
 
 // ── 重修生専属統計：跨學期趨勢／及格率趨勢（29-1 交接規格書 v0.4） ──
-function getRetakerSemesterTrend(examField) {
+// BUG-HARDCODED-THEORY-TREND FIX（0918 穿透式審查，使用者指定排查「實作污染理論」
+// 概念延伸出的反向案例）：原本第二參數固定寫死 r.type==='theory'，renderB() 切到
+// 「實驗課」(bFilterType='practicum') 檢視時，本函式仍只抓理論記錄——同一張
+// 「重修生跨學期趨勢／及格率趨勢」圖，不論使用者選哪個課別，數字都不會變，等於
+// 實驗課檢視模式下顯示的其實是理論資料。真實資料下實驗課重修生僅4人（vs理論
+// 623人），視覺上不容易察覺數字沒切換，但語意上是錯的。修正：新增 type 參數，
+// 呼叫端一律傳入 renderB() 當下的 bFilterType，與同一函式內其餘圖表
+// （renderDelta／renderQuadrant／renderRetakeCount 等）的 type 範疇一致。
+function getRetakerSemesterTrend(examField, type) {
   const bySem = new Map(DATA.meta.semesters.map(s => [s, []]));
   for (const s of Object.values(DATA.students)) {
     for (const r of s.records) {
-      if (r.type === 'theory' && r.is_retaker === true && bySem.has(r.semester)) {
+      if (r.type === type && r.is_retaker === true && bySem.has(r.semester)) {
         bySem.get(r.semester).push(r);
       }
     }
@@ -2318,7 +2326,7 @@ function renderB() {
   }
 
   const retakerSems = [...DATA.meta.semesters].sort((a, b) => Number(a) - Number(b));
-  const retakerTrend = getRetakerSemesterTrend(cCurrentExam);
+  const retakerTrend = getRetakerSemesterTrend(cCurrentExam, type);
   renderRetakerTrend(retakerTrend, retakerSems);
   renderRetakerPassRateTrend(retakerTrend, retakerSems);
   renderSlope(retakers);
@@ -3285,11 +3293,22 @@ function renderAnomalyDensity() {
 function renderRetakerFirstDist() {
   // PWA-FIX (評量指標未連動)：同一根因，改讀 cCurrentExam 而非固定 semester_score。
   const examField = cCurrentExam;
+  // BUG-CROSS-TYPE-FIRSTDIST FIX（0917 穿透式審查，真實資料驗證命中 37 名學生）：
+  // 原本用 s.records.filter(r=>!r.is_retaker) 找首修記錄，未依 type（理論/實作）
+  // 分開處理——理論被當、實作卻過是常見情況，兩者是各自獨立判定重修的（is_retaker
+  // 由 ETL 端依 (student_id, type) 分組計算），但排序後可能撈到分數較高的「實作」
+  // 記錄當成「理論重修生」的首修成績，導致及格分數（≥60）出現在重修生首修分布圖
+  // 裡——這在邏輯上不可能，重修判定本身就是因為同一 type 的前一筆分數 <60。
+  // 修正：比照 _withMetricScores()／getRetakerRecords() 的作法，先用目前分頁選取
+  // 的 type（bFilterType）限縮記錄範圍，「是否為重修生」與「首修記錄」都在同一
+  // type 內判斷，不再跨 type 混算。
+  const type = document.getElementById('bFilterType').value;
   const bins = Array(11).fill(0);
   Object.values(DATA.students).forEach(s=>{
-    if (!s.records.some(r=>r.is_retaker)) return; // 非重修生跳過
-    // 取首修記錄（is_retaker=false）中最早那筆
-    const firstRec = [...s.records.filter(r=>!r.is_retaker)]
+    const typeRecs = s.records.filter(r=>r.type===type);
+    if (!typeRecs.some(r=>r.is_retaker)) return; // 該 type 非重修生跳過
+    // 取首修記錄（is_retaker=false）中最早那筆，限定同一 type
+    const firstRec = [...typeRecs.filter(r=>!r.is_retaker)]
       .sort(compareClassRecords)[0];
     const first = firstRec?.[examField];
     if (first==null) return;
