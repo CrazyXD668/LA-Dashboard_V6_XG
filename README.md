@@ -38,7 +38,7 @@
 
 - [功能概覽](#功能概覽)
 - [設計特色](#設計特色)
-- [專案結構](#專案結構)
+- [架構總覽](#架構總覽)
 - [技術架構](#技術架構)
 - [安全性架構](#安全性架構)
 - [資料準備](#資料準備)
@@ -78,20 +78,15 @@
 
 ### 統一說明系統（Help Modal）
 
-`js/help-modal.js` 為單一權威的圖表／面板說明來源，取代過去分散在 4 處的實作：
-
-- `main.js` 的 `CHART_INFO` 物件 + `attachInfoButtons()`（28 個圖表 hover popover）
-- `index.html` 內 5 個手寫說明面板（`bStatsHelp` / `warningHelp` / `rRadarInfo` / `r2Exclude` / `lsaHelp`），原分別由已整檔移除的 `ui-toggles.js` 與 `tab-behavior-lsa.js` 自建的 overlay 管理
-
-桌面版互動由 hover-preview 改為點擊觸發全螢幕 modal（`renderHelpModal()`），提供 ESC／點擊遮罩外部／✕ 按鈕三重關閉機制。載入順序需在 `chart-registry.js` 之後、`behavior-loader.js` 之前，確保 `window.toggleWarningHelp` 等相容殼層先於各 Tab 模組就位。支援「白話摘要＋可展開完整說明」雙層顯示，統計公式等技術細節預設收合、按需展開；尚未撰寫摘要的既有條目維持原行為直接展開，不影響回溯相容性。
+圖表與面板的說明統一由單一元件管理，取代先前分散在多處的獨立實作。桌面版互動由 hover-preview 改為點擊觸發全螢幕說明視窗，提供 ESC／點擊遮罩外部／關閉按鈕三種關閉方式，並支援「白話摘要＋可展開完整說明」雙層顯示，統計公式等技術細節預設收合、按需展開。
 
 ---
 
 ## 設計特色
 
 - **通過真實使用者驗證**：現行版本已由實際授課教師完成可用性評估；後續 UI/UX 調整方向以訪談與回饋為準，避免單方面臆測使用習慣
-- **漸進式揭露**：`filter-collapse-bar` 收合列涵蓋 7 處篩選面板，`help-modal.js` 的 `_INFO_CARD_TOGGLES` 統一管理多張可折疊資訊卡，降低畫面預設資訊密度
-- **篩選狀態記憶（隱私優先）**：`FilterMemory` 僅記住檢視偏好（學期、學制、顯示模式等安全子集合），刻意不記住班級／搜尋字串等資料範圍選擇，避免系所共用電腦洩漏前一位使用者的查詢內容
+- **漸進式揭露**：篩選面板與多張資訊卡預設收合，降低畫面預設資訊密度，依需求展開
+- **篩選狀態記憶（隱私優先）**：僅記住檢視偏好（學期、學制、顯示模式等安全子集合），刻意不記住班級／搜尋字串等資料範圍選擇，避免系所共用電腦洩漏前一位使用者的查詢內容
 - **無障礙語意基礎**：分頁採正確 `role="tab"`／`aria-*`，篩選滑桿具 `aria-label`
 - **行動裝置三段式適配**：600px／700px／900px 中斷點，篩選列於小螢幕自動改為直向堆疊
 - **空狀態設計意識**：loading overlay、多種「查無資料」狀態、樣本數不足的分群（如目前 S5）顯示專屬提示文字，而非靜默隱藏或留下空白卡片
@@ -100,46 +95,13 @@
 
 ---
 
-## 專案結構
+## 架構總覽
 
-```
-.
-├── index.html                        # 主應用程式（單頁）
-├── manifest.json                     # PWA Manifest
-├── sw.js                             # Service Worker（根目錄，確保 scope 正確）
-├── js/
-│   ├── main.js                       # 主應用邏輯、Panel A/C/D 渲染、escapeHtml/safeSvgAttr/normalizeChartThemeColors
-│   ├── behavior-init.js              # 行為資料初始化（協調 Panel L 各子分頁啟動）
-│   ├── behavior-loader.js            # 資料載入 v3.0（LRU 快取、masked_id join、gz 回退）
-│   ├── filter-engine.js              # 篩選器核心邏輯 v1.1.0（無 DOM 依賴）
-│   ├── chart-registry.js             # Chart 實例集中註冊與銷毀管理
-│   ├── help-modal.js                 # 統一說明 Modal 系統（取代 CHART_INFO 與 5 個手寫面板，詳見下節）
-│   ├── at-risk-report.js             # 高風險報告管理器（Panel R）
-│   ├── frame-guard.js                # iframe 嵌入防護（同步載入，無 defer）
-│   ├── print-panel.js                # 列印面板（Panel P）多圖表選擇與預覽
-│   ├── tab-behavior-radar.js         # Panel L › 雷達圖子分頁
-│   ├── tab-behavior-correlation.js   # Panel L › 相關性矩陣子分頁
-│   ├── tab-behavior-time.js          # Panel L › 時序折線圖子分頁
-│   ├── tab-behavior-lsa.js           # Panel L › LSA 序列有向圖子分頁
-│   ├── tab-behavior-cross.js         # Panel L › 跨屆比較子分頁
-│   ├── tab-behavior-warning.js       # Panel L › 早期預警子分頁（Option B）
-│   └── vendor/
-│       ├── chart.umd.min.js          # Chart.js 4.4.0
-│       ├── chartjs-plugin-annotation.min.js  # @3.0.1
-│       ├── d3.min.js                 # D3.js v7.9.0（LSA 有向圖）
-│       └── pwacompat.min.js          # PWACompat（iOS Splash Screen 自動產生）
-├── icons/                            # PWA 圖示（192、512、180、167、120 px）
-└── data/                             # 資料目錄（需自行提供，含個資請自行管理）
-    ├── data.json                     # 成績與 meta 資料（Panel A/C/D，由 etl.py 產出）
-    ├── behavior.json / .json.gz      # 行為資料主檔（含 gz 壓縮回退版）
-    ├── radar_chart_data.json
-    ├── correlation_matrix.json       # 含 lsa_transition（by_cluster／by_lsa_type，10_lsa_transition.py 產出）
-    ├── quiz_behavior.json
-    ├── time_distribution.json
-    ├── at_risk_profile.json          # schema_version ≥ 3.0（by_semester 結構）
-    ├── cross_analysis.json           # 早期預警彙總（12_early_warning.py 產出）
-    └── warning_{學期}.json           # 逐學期早期預警明細
-```
+本專案為純前端 PWA（HTML + Vanilla JS），不依賴前端框架。畫面依主面板與行為分析子分頁拆成對應的 JS 模組，第三方函式庫（Chart.js、D3.js 等）皆本地化存放、不經外部 CDN 載入，Service Worker 置於根目錄以確保快取 scope 正確涵蓋全站。
+
+執行所需的資料檔案集中放在 `data/` 目錄，由獨立的後端 ETL 套件產出（見〈[資料準備](#資料準備)〉），內容含學生個資，**不隨本 repo 提供**。
+
+> 為降低內部實作細節被直接掃描利用的風險，此處不列出完整檔案清單與模組間的函式對應；實際開發或除錯請直接查閱原始碼與 `CHANGELOG.md`。
 
 ---
 
@@ -149,10 +111,9 @@
 - **圖表**：[Chart.js 4.4.0](https://www.chartjs.org/) + chartjs-plugin-annotation 3.0.1（本地化於 `js/vendor/`）
 - **有向圖**：[D3.js v7.9.0](https://d3js.org/)（本地化，供 LSA 序列有向圖使用）
 - **PWA**：Service Worker（App Shell Cache First + Data Network First）、iOS / Android / 桌機安裝支援
-- **資料層**：`behavior-loader.js` v3.0 負責 lazy load JSON（LRU 快取、gz 壓縮回退）；`filter-engine.js` v1.1.0 處理多維度篩選邏輯（無 DOM 依賴）
-- **圖表生命週期**：`chart-registry.js` 集中管理所有 Chart.js 實例的建立與銷毀，避免記憶體洩漏
-- **離線支援**：斷線時自動回退至最近快取的 data JSON
-- **快取版本**：`la-dash-v11-docs-cachefix-{BUILD_VERSION}`（於 `sw.js` 管理，App Shell 與資料快取分開命名）
+- **資料層**：JSON 資料採延遲載入並搭配 LRU 快取，另備 gzip 壓縮回退版本；多維度篩選邏輯獨立於畫面渲染，不依賴 DOM
+- **圖表生命週期**：Chart.js 實例的建立與銷毀集中管理，避免記憶體洩漏
+- **離線支援**：斷線時自動回退至最近一次成功快取的資料
 
 ---
 
@@ -188,18 +149,14 @@ worker-src  'self' blob:;
 
 ### XSS 防護
 
-- 所有動態 HTML 插值一律通過 `escapeHtml()` / `safeSvgAttr()` / `escapeAttr()`（定義於 `main.js` / `print-panel.js`）處理
-- 禁止使用 `innerHTML` 傳入未逸出的使用者資料；清空用途（`innerHTML = ''`）例外
-- 無 `eval()`、無 `document.write()`、無 `new Function()`
-- 學生識別碼一律使用 SHA-256 salt 雜湊後的 `name_masked`，原始姓名不進入前端
+- 所有動態 HTML 插值皆經統一逸出處理後才寫入頁面
+- 不將未逸出的資料傳入 `innerHTML`（清空用途例外）
+- 不使用 `eval()`、`document.write()`、`new Function()` 等高風險 API
+- 學生識別碼一律經加鹽雜湊處理，原始姓名不會出現在任何前端資料或畫面中
 
-### CSP 合規稽核記錄（V12 → V15）
+### CSP 合規稽核
 
-| 版本 | 修復項目 |
-|------|---------|
-| V13 | BUG-1：`renderDTable` 閉括號錯位修復；BUG-2：`populateCYearFilter` 雜入呼叫清除；全域 74 處 `.style.xxx =` 轉為 `setProperty` |
-| V14 | 移除 5 處 `console.debug` 垃圾碼 |
-| V15 | 窮舉式稽核（9 類 CSP 違規 / 6 類 Bug / 9 類垃圾碼）全數通過；移除殘留 `console.info` |
+本專案已完成多輪 CSP 合規稽核，目前程式碼無 inline style／inline script 違規（合規做法見上方對照表）。
 
 ### 建議伺服器安全標頭（CDN 層設定）
 
@@ -215,28 +172,22 @@ worker-src  'self' blob:;
 
 `data/` 目錄下的 JSON 檔案需由後端 ETL 流程產出，**不隨本 repo 提供**（含個資，請自行管理）。
 
-- `data.json`（成績與 meta）由獨立腳本 `etl.py` 產出；`behavior.json` 等行為／風險資料由 `lms_etl.py`（16 個模組）產出，兩者為各自獨立的 ETL 流程
-- `at_risk_profile.json` 須符合 schema version ≥ 3.0（`by_semester` 多學期結構）
-- `correlation_matrix.json` 內的 `by_cluster`（R1–R5）與 `by_lsa_type`（S1–S5）分組由 `10_lsa_transition.py` 產出，非獨立檔案
-- 早期預警所需的 `cross_analysis.json` / `warning_{學期}.json` 由 `12_early_warning.py` 產出，包含 BAS（`bas_score`、`qmi`）與 XGBoost（`xgb_probability`、`risk_level_xgb`）雙模型欄位；`lms_etl.py` 預設以 `--enable-xgb` 啟用 XGBoost 訓練（可用 `--disable-xgb` 退回 BAS-only 模式）
-- `lms_etl.py` 於去識別化（`anonymize`）前執行系外學生過濾：依 summary sheet 原生「單位」欄位比對在籍系所白名單，過濾因共同必修課合併開班而混入 LMS 匯出檔的系外學生列（涵蓋 activity／reading_log／reading_stats／homework／quiz／survey／discussion／video_quiz／summary 共 8 個 sheet），查無單位紀錄者採保守預設予以保留並警告計數
+- 成績與 meta 資料由 `etl.py` 產出；行為與風險資料由 `lms_etl.py` 產出，兩者為各自獨立的 ETL 流程。後端套件另附自己的 `README.md`，說明安裝與執行方式
+- ETL 端相依套件已整理為 `requirements.txt`；`.xlsx` 讀取自本輪起以 `python-calamine`（Rust 實作）為主要引擎，單檔讀取實測較 `openpyxl` 快約 5.6 倍，環境中未安裝時會自動降級回 `openpyxl`（正確性不受影響、僅速度較慢）並於執行時提示安裝指令
+- `at_risk_profile.json` 須符合 schema version ≥ 3.0（多學期結構）
+- 早期預警資料包含 BAS 與 XGBoost 雙模型評分欄位；`lms_etl.py` 預設啟用 XGBoost 訓練，可依需求切換為 BAS-only 模式
+- 去識別化前會先過濾因合併開班而混入匯出檔的系外學生資料，避免污染跨班級統計與模型訓練特徵；詳細比對邏輯屬後端套件內部實作，請直接參考其原始碼
 
 ---
 
 ## 資料範圍與統計排除規則
 
-儀表板統計資料以本系在籍學生為主體，以下兩類系外資料會被**排除於跨班級聚合統計與模型訓練之外**，但成績歷史紀錄本身不會被刪除或隱藏：
+儀表板的跨班級聚合統計（加權平均、學制別比較、及格率趨勢等）以本系在籍學生為主體。以下兩類資料會被排除於這類聚合統計與模型訓練之外，但**原始紀錄本身不會被刪除或隱藏**，仍可於個別班級明細與歷史紀錄中查閱：
 
-| 類型 | 成因 | 保留範圍 | 排除範圍 |
-|------|------|----------|----------|
-| 特定歷史特殊任務班級 | 現已無現行招生，成績僅作歷史紀錄保留 | 熱力圖、班級明細表（灰色徽章「非本系（歷史紀錄）」）、各班獨立趨勢線 | `renderD()` dStats 加權統計卡片、「學制數」卡片、`renderDTrendMerge()` 全部學制趨勢線、`renderCorrelation()` 人數 vs 及格率散點 |
-| LMS 合併開班混入的系外學生 | 特定共同必修課由多系合併開班，LMS 依課程（而非系所）匯出，其他系所學生連帶被匯出 | 不適用（於 ETL 去識別化前即整批過濾） | 全部 8 個 LMS 資料 sheet，進而阻斷流入 XGBoost 訓練特徵與早期預警風險評估 |
+- 已無現行招生的歷史特殊任務班級，成績僅作歷史紀錄保留
+- 因共同必修課合併開班而混入 LMS 匯出檔的系外學生行為資料
 
-**前端實作**（`js/main.js`）：`classInfo()` 依班級代碼規則辨識前述特殊班級並獨立回傳一組專屬特殊類別旗標，並**刻意不列入** `PROGRAM_ORDER` 陣列——多數以 `PROGRAM_ORDER` 逐一映射的圖表（`renderBoxPlot()`／`renderDProgramBar()`／`renderDPassRateBar()`／`renderDPassRateLine()`）因此自動安全跳過；僅 4 處走「資料中實際出現哪些 program」路徑的聚合點需個別加註排除（見上表）。該旗標對應之顯示標籤與中性灰配色（`#7a7a7a`）另由對照表統一管理，供徽章與散點圖使用。
-
-**後端實作**（`lms_etl.py`）：先建立「原始帳號→單位」對照表，再於 `run()` 內 `_merge_lms_files()` 之後、去識別化之前執行系外學生過濾（去識別化後帳號已雜湊為 `anon_id`，無法回頭比對單位）。成績面（`etl.py` 之班制分類邏輯）與行為面（`lms_etl.py` 在籍系所白名單）為互補、分屬不同資料源的獨立修正機制。
-
-> ⚠️ 白名單目前僅涵蓋既有觀察到的單位類別；未來若有新增招生管道且單位名稱不符白名單關鍵字，會被保守預設排除（而非誤判為包含），需人工擴充白名單。
+排除發生在資料前處理階段，前端與後端 ETL 各自把關一次，確保這類資料不會污染跨班級聚合統計或早期預警模型的訓練特徵。實際比對邏輯屬套件內部實作，不在此公開說明；如需稽核請直接查閱原始碼。
 
 ---
 
@@ -283,16 +234,14 @@ python -m http.server 8080
 
 ## 篩選維度
 
-`filter-engine.js` v1.1.0 支援以下篩選規則（依規格書 v3.1）：
+本儀表板支援以下篩選規則：
 
 - **學期** → 自動反灰不適用學制
 - **學制**：二技一般、二技在職、二技夜間、四技一般、學士後、重修班、重修生
 - **課程類型** → 依學制鎖定可選項目
 - **班級** → 動態依前述選項產生清單
 - **重修生開關**：可單獨切換是否納入統計
-- **篩選狀態記憶**：安全子集合（學期、學制、顯示模式等）以 `FilterMemory` 記住上次選擇；班級、搜尋字串等資料範圍選擇不記憶，降低共用電腦查詢外洩風險
-
-> ⚠️ **實作註記**：`filter-engine.js`／`main.js` 的中文數字班級代碼比對一律使用明確列舉 `[一二三四五六七八九]`，**不可**改用 Unicode 字元範圍 `[一-九]`——中文數字非依語意連續編碼，該範圍依 code point 排序僅含一(4E00)／三(4E09)／七(4E03)／九(4E5D)，會漏判二／四／五／六／八。
+- **篩選狀態記憶**：安全子集合（學期、學制、顯示模式等）記住上次選擇；班級、搜尋字串等資料範圍選擇不記憶，降低共用電腦查詢外洩風險
 
 ---
 
@@ -308,7 +257,7 @@ python -m http.server 8080
 
 ## 版本控制
 
-本專案使用 Git 進行版本管理。JS 模組採內部版號追蹤（`filter-engine.js` v1.1.0、`behavior-loader.js` v3.0），Service Worker 快取以 `la-dash-v11-docs-cachefix` 命名管理。所有可版本化資源（`index.html` 中的模組化 JS、`js/behavior-loader.js` 的 `DATA_VERSION`、`sw.js` 的 `BUILD_VERSION` 與 `APP_SHELL`）共用單一版本戳作為 `?v=` cache-busting query string；三處各自手動更新曾是重複性快取失效問題的根因，現統一透過 `update-dashboard-after-etl.ps1` 於單次執行內原子性同步三處版本戳，`APP_SHELL` 清單並依 `index.html` 當下的 `<script>` 標籤自動重建（而非手動維護陣列），執行後另跑 `node --check` 對全部 JS 檔案做語法驗證。
+本專案使用 Git 進行版本管理。前端可版本化資源共用單一版本戳，作為 `?v=` cache-busting query string；多處各自手動維護版本號曾是重複性快取失效問題的根因，現已改為部署時於單次執行內原子性同步、並自動對全部 JS 檔案做語法驗證，避免人工遺漏。
 
 ---
 
